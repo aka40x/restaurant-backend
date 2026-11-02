@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nha hang - Trang chu</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Nha hang</h1>
+        <p id="status">Dang kiem tra ket noi API...</p>
+    </div>
+
+    <script src="../assets/js/api.js"></script>
+    <script>
+        apiRequest("/")
+            .then(function (result) {
+                document.getElementById("status").textContent = "API: " + result.message;
+            })
+            .catch(function () {
+                document.getElementById("status").textContent = "Khong ket noi duoc API";
+            });
+    </script>
+</body>
+</html>
