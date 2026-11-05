@@ -1,0 +1,31 @@
+# Chạy MySQL bằng Docker, không cần cài MySQL lên máy.
+#   Bật:   docker compose up -d
+#   Tắt:   docker compose down        (dữ liệu vẫn giữ trong volume)
+#   Xoá sạch dữ liệu: docker compose down -v
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: ks25-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: app_db
+      MYSQL_USER: app_user
+      MYSQL_PASSWORD: app_password
+      TZ: Asia/Ho_Chi_Minh
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    ports:
+      # 3307 trên máy bạn -> 3306 trong container (tránh đụng MySQL/XAMPP đang dùng 3306)
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      # Lần đầu tạo container, MySQL tự chạy các file .sql trong thư mục này
+      - ./sql:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  mysql_data:
