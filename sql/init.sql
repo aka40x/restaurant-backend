@@ -52,7 +52,8 @@ CREATE TABLE IF NOT EXISTS categories (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     description VARCHAR(255),
-    sort_order INT NOT NULL DEFAULT 0
+    sort_order INT NOT NULL DEFAULT 0,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS menu_items (
@@ -63,6 +64,7 @@ CREATE TABLE IF NOT EXISTS menu_items (
     price DECIMAL(10,2) NOT NULL,
     image_url VARCHAR(255),
     is_available BOOLEAN NOT NULL DEFAULT TRUE,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (category_id) REFERENCES categories(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -71,7 +73,11 @@ CREATE TABLE IF NOT EXISTS menu_item_options (   -- size, topping...
     id INT AUTO_INCREMENT PRIMARY KEY,
     menu_item_id INT NOT NULL,
     name VARCHAR(100) NOT NULL,
+    size VARCHAR(20) NULL,               -- vd: S, M, L (rỗng nếu là topping)
+    topping VARCHAR(50) NULL,            -- vd: Phô mai (rỗng nếu là size)
     extra_price DECIMAL(10,2) NOT NULL DEFAULT 0,
+    is_required BOOLEAN NOT NULL DEFAULT FALSE,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
     FOREIGN KEY (menu_item_id) REFERENCES menu_items(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -80,7 +86,9 @@ CREATE TABLE IF NOT EXISTS dining_tables (
     branch_id INT NOT NULL,
     table_number VARCHAR(20) NOT NULL,
     capacity INT NOT NULL,
+    area VARCHAR(50) NULL,               -- khu vực: Tầng 1, Sân vườn...
     status VARCHAR(20) NOT NULL DEFAULT 'available',   -- available / occupied / reserved
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
     UNIQUE (branch_id, table_number),
     FOREIGN KEY (branch_id) REFERENCES branches(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -248,13 +256,13 @@ INSERT INTO menu_items (category_id, name, description, price) VALUES
     (3, 'Salad Rau Củ', 'Rau củ tươi trong ngày', 90000),
     (4, 'Nước ép cam', 'Cam vắt tươi', 50000);
 
-INSERT INTO menu_item_options (menu_item_id, name, extra_price) VALUES
-    (1, 'Size L', 40000),
-    (1, 'Thêm phô mai', 20000);
+INSERT INTO menu_item_options (menu_item_id, name, size, topping, extra_price) VALUES
+    (1, 'Size L', 'L', NULL, 40000),
+    (1, 'Thêm phô mai', NULL, 'Phô mai', 20000);
 
-INSERT INTO dining_tables (branch_id, table_number, capacity) VALUES
-    (1, 'A1', 2), (1, 'A2', 4), (1, 'A3', 6),
-    (2, 'B1', 2), (2, 'B2', 4);
+INSERT INTO dining_tables (branch_id, table_number, capacity, area) VALUES
+    (1, 'A1', 2, 'Tầng 1'), (1, 'A2', 4, 'Tầng 1'), (1, 'A3', 6, 'Tầng 2'),
+    (2, 'B1', 2, 'Tầng 1'), (2, 'B2', 4, 'Sân vườn');
 
 INSERT INTO ingredients (name, unit) VALUES
     ('Bột mì', 'g'), ('Phô mai mozzarella', 'g'), ('Cà chua', 'g'), ('Cua', 'g');
