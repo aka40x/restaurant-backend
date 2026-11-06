@@ -16,7 +16,14 @@ class Settings(BaseSettings):
     DB_USER: str = "app_user"
     DB_PASSWORD: str = "app_password"
     DB_NAME: str = "app_db"
-
+    
+    # ---- Đăng nhập (JWT) ----
+    # SECRET_KEY dùng để ký token. Tạo chuỗi ngẫu nhiên: python -c "import secrets; print(secrets.token_hex(32))"
+    SECRET_KEY: str = "doi-chuoi-nay-trong-file-env"
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    
     # Chuỗi các origin cách nhau bằng dấu phẩy, hoặc "*"
     CORS_ORIGINS: str = "*"
 
