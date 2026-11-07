@@ -3,6 +3,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.branch import BranchOut
+
 from app.schemas.role import RoleOut
 
 EMAIL_PATTERN = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
@@ -47,5 +49,6 @@ class UserOut(BaseModel):
     branch_id: int | None
     role_id: int
     role: RoleOut
+    branch: BranchOut | None  # trống nếu là admin tổng
     is_active: bool
     created_at: datetime

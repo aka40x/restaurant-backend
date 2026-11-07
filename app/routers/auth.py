@@ -12,6 +12,8 @@ from app.crud import user as user_crud
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.auth import AccessTokenOut, LoginRequest, RefreshRequest, TokenOut
+from app.core.deps import get_current_user
+from app.schemas.user import UserOut
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -48,3 +50,6 @@ def refresh(data: RefreshRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Tài khoản không tồn tại hoặc đã bị khoá")
 
     return AccessTokenOut(access_token=_access_token_for(user))
+@router.get("/me", response_model=UserOut)
+def me(user: User = Depends(get_current_user)):
+    return user

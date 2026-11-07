@@ -6,8 +6,12 @@ from app.models.branch import Branch
 from app.schemas.branch import BranchCreate, BranchUpdate
 
 
-def get_branches(db: Session, keyword: str | None = None, only_active: bool = False) -> list[Branch]:
+def get_branches(
+    db: Session, keyword: str | None = None, only_active: bool = False, branch_id: int | None = None
+) -> list[Branch]:
     query = select(Branch).order_by(Branch.id)
+    if branch_id is not None:  # giới hạn theo chi nhánh của nhân viên
+        query = query.where(Branch.id == branch_id)
     if keyword:
         query = query.where(Branch.name.contains(keyword))
     if only_active:
