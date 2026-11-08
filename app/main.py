@@ -13,6 +13,10 @@ from app import models  # noqa: F401 - import để SQLAlchemy biết các bản
 from app.core.config import settings
 from app.db.session import Base, engine
 from app.routers import auth, branches, health
+from routers import order_router  # Import router vừa tạo
+
+# Thêm dòng này vào app (sau khi khởi tạo FastAPI app)
+app.include_router(order_router.router)
 
 
 @asynccontextmanager
