@@ -4,9 +4,8 @@ from app.models.branch import Branch  # noqa: F401
 from app.models.role import Role  # noqa: F401
 from app.models.user import User  # noqa: F401
 
-from app.models.category import Category  # noqa: F401
-from app.models.menu_item import MenuItem  # noqa: F401
-from app.models.menu_item_option import MenuItemOption  # noqa: F401
-from app.models.dining_table import DiningTable  # noqa: F401
-from app.models.customer import Customer  # noqa: F401
-from app.models.reservation import Reservation  # noqa: F401
+from app.models.voucher import Voucher  # noqa: F401
+from app.models.payment import Payment  # noqa: F401
+from app.models.ingredient import Ingredient  # noqa: F401
+from app.models.recipe import Recipe  # noqa: F401
+from app.models.branch_inventory import BranchInventory  # noqa: F401
