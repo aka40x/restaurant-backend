@@ -8,5 +8,6 @@ from app.models.category import Category  # noqa: F401
 from app.models.menu_item import MenuItem  # noqa: F401
 from app.models.menu_item_option import MenuItemOption  # noqa: F401
 from app.models.dining_table import DiningTable  # noqa: F401
-from app.models.customer import Customer  # noqa: F401
-from app.models.reservation import Reservation  # noqa: F401
+from app.models.order import Order  # noqa: F401
+from app.models.order_item import OrderItem  # noqa: F401
+from app.models.order_item_option import OrderItemOption  # noqa: F401
