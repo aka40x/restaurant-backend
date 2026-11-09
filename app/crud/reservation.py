@@ -12,6 +12,7 @@ from app.schemas.reservation import ReservationCreate
 HOLD_MINUTES = 120  # mỗi đặt bàn giữ bàn 120 phút (đề xuất, nhóm chốt)
 ACTIVE_STATUSES = ("pending", "confirmed", "seated")  # các trạng thái đang chiếm bàn
 CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # bỏ O, 0, I, 1 cho khỏi nhầm
+CANCELLABLE_STATUSES = ("pending", "confirmed")  # khách chỉ huỷ được khi chưa nhận bàn (BR-05)
 
 
 def generate_code(db: Session) -> str:
@@ -76,5 +77,22 @@ def create_reservation(
     )
     db.add(reservation)
     db.commit()  # commit cũng nhả khoá bàn
+    db.refresh(reservation)
+    return reservation
+
+def get_reservation_by_code_phone(
+    db: Session, code: str, phone: str, for_update: bool = False
+) -> Reservation | None:
+    """Tìm đặt bàn theo mã VÀ số điện thoại. for_update=True để khoá dòng khi sắp sửa."""
+    query = select(Reservation).where(Reservation.code == code, Reservation.guest_phone == phone)
+    if for_update:
+        query = query.with_for_update()  # tránh vừa huỷ vừa check-in cùng lúc
+    return db.scalar(query)
+
+
+def cancel_reservation(db: Session, reservation: Reservation) -> Reservation:
+    # Giữ nguyên table_id để lưu lịch sử. Bàn vẫn trống vì 'cancelled' không còn chiếm bàn.
+    reservation.status = "cancelled"
+    db.commit()
     db.refresh(reservation)
     return reservation

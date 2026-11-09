@@ -6,14 +6,14 @@ Các task sau sẽ thêm vào router này: tra cứu, huỷ (khách) và quản 
 """
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.crud import branch as branch_crud
 from app.crud import customer as customer_crud
 from app.crud import reservation as reservation_crud
 from app.db.session import get_db
-from app.schemas.reservation import ReservationCreate, ReservationDetailOut
+from app.schemas.reservation import PHONE_PATTERN, ReservationCreate, ReservationDetailOut, ReservationLookup
 
 router = APIRouter(prefix="/reservations", tags=["Reservations"])
 
@@ -56,3 +56,33 @@ def create_reservation(data: ReservationCreate, db: Session = Depends(get_db)):
 
     customer = customer_crud.get_customer_by_phone(db, data.guest_phone)  # trống = khách vãng lai
     return reservation_crud.create_reservation(db, data, table, customer.id if customer else None)
+
+@router.get("/lookup", response_model=ReservationDetailOut)
+def lookup_reservation(
+    code: str = Query(min_length=1, max_length=20),
+    phone: str = Query(pattern=PHONE_PATTERN),
+    db: Session = Depends(get_db),
+):
+    """Khách tra cứu đặt bàn bằng mã + số điện thoại (không cần đăng nhập)."""
+    reservation = reservation_crud.get_reservation_by_code_phone(db, code.strip().upper(), phone)
+    if reservation is None:
+        # Sai mã hay sai SĐT đều trả CÙNG một câu, không cho biết mã nào tồn tại
+        raise HTTPException(status_code=404, detail="Không tìm thấy đặt bàn với mã và số điện thoại này")
+    return reservation
+
+
+@router.post("/cancel", response_model=ReservationDetailOut)
+def cancel_reservation(data: ReservationLookup, db: Session = Depends(get_db)):
+    """Khách huỷ đặt bàn: chỉ khi đang pending/confirmed và còn trước giờ đặt."""
+    reservation = reservation_crud.get_reservation_by_code_phone(
+        db, data.code.strip().upper(), data.phone, for_update=True
+    )
+    if reservation is None:
+        raise HTTPException(status_code=404, detail="Không tìm thấy đặt bàn với mã và số điện thoại này")
+    if reservation.status == "cancelled":
+        raise HTTPException(status_code=409, detail="Đặt bàn này đã được huỷ trước đó")
+    if reservation.status not in reservation_crud.CANCELLABLE_STATUSES:
+        raise HTTPException(status_code=409, detail="Chỉ huỷ được đặt bàn đang chờ hoặc đã xác nhận")
+    if reservation.reserved_at <= datetime.now(VN_TZ).replace(tzinfo=None):
+        raise HTTPException(status_code=409, detail="Đã qua giờ đặt bàn, không thể huỷ")
+    return reservation_crud.cancel_reservation(db, reservation)

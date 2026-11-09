@@ -54,3 +54,9 @@ class ReservationDetailOut(ReservationOut):
 
     branch: BranchOut
     table: DiningTableOut | None
+    
+class ReservationLookup(BaseModel):
+    """Khách gửi lên khi HUỶ đặt bàn: cần đúng mã và số điện thoại đã đặt."""
+
+    code: str = Field(min_length=1, max_length=20, examples=["DBK7M2XQ"])
+    phone: str = Field(pattern=PHONE_PATTERN, examples=["0912345678"])
