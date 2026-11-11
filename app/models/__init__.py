@@ -3,3 +3,8 @@
 from app.models.branch import Branch  # noqa: F401
 from app.models.role import Role  # noqa: F401
 from app.models.user import User  # noqa: F401
+
+from app.models.category import Category  # noqa: F401
+from app.models.menu_item import MenuItem  # noqa: F401
+from app.models.menu_item_option import MenuItemOption  # noqa: F401
+from app.models.dining_table import DiningTable  # noqa: F401
