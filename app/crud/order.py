@@ -12,14 +12,34 @@ from app.core.deps import check_branch_access
 from app.models.dining_table import DiningTable
 from app.models.menu_item import MenuItem
 from app.models.menu_item_option import MenuItemOption
-from app.models.order import ORDER_ACTIVE_STATUSES, ORDER_OPEN, Order
-from app.models.order_item import ITEM_CANCELLED, ITEM_PENDING, OrderItem
+from app.core.deps import ADMIN, KITCHEN, MANAGER, WAITER, check_branch_access
+from app.models.order import ORDER_ACTIVE_STATUSES, ORDER_OPEN, ORDER_SENT, ORDER_SERVED, Order
+from app.models.order_item import (
+    ITEM_CANCELLED,
+    ITEM_COOKING,
+    ITEM_DONE,
+    ITEM_PENDING,
+    ITEM_SERVED,
+    OrderItem,
+)
 from app.models.order_item_option import OrderItemOption
 from app.models.user import User
 from app.schemas.order import OrderCreate, OrderItemCreate, OrderItemUpdate
+from sqlalchemy import func, select
 
-# Món chỉ được sửa / huỷ khi còn đang chờ (chưa vào bếp). Muốn cho huỷ cả món đang nấu thì thêm ITEM_COOKING vào đây.
+# Món chỉ được sửa / huỷ khi còn chờ VÀ chưa gửi bếp (sent_at trống).
 EDITABLE_ITEM_STATUSES = (ITEM_PENDING,)
+
+# Trạng thái mới -> (trạng thái hiện tại bắt buộc, vai trò được đổi). Admin luôn được.
+ITEM_TRANSITIONS = {
+    ITEM_COOKING: (ITEM_PENDING, (KITCHEN, MANAGER)),
+    ITEM_DONE: (ITEM_COOKING, (KITCHEN, MANAGER)),
+    ITEM_SERVED: (ITEM_DONE, (WAITER, MANAGER)),
+}
+
+
+def _is_editable(item: OrderItem) -> bool:
+    return item.status in EDITABLE_ITEM_STATUSES and item.sent_at is None
 
 
 # ---------- Đọc ----------
@@ -113,6 +133,8 @@ def add_item(db: Session, order: Order, data: OrderItemCreate) -> Order:
             options=_build_options(db, menu_item, data.option_ids),
         )
     )
+    if order.status == ORDER_SERVED:  # đã ra hết món mà khách gọi thêm -> có món mới chưa gửi bếp
+        order.status = ORDER_OPEN
     db.commit()
     db.refresh(order)
     return order
@@ -121,8 +143,8 @@ def add_item(db: Session, order: Order, data: OrderItemCreate) -> Order:
 def update_item(db: Session, order: Order, item_id: int, data: OrderItemUpdate) -> Order:
     _ensure_order_editable(order)
     item = _get_item(order, item_id)
-    if item.status not in EDITABLE_ITEM_STATUSES:
-        raise HTTPException(status_code=409, detail="Món đã vào bếp hoặc đã huỷ, không thể sửa")
+    if not _is_editable(item):
+        raise HTTPException(status_code=409, detail="Món đã gửi bếp hoặc đã huỷ, không thể sửa")
 
     fields = data.model_fields_set
     if data.quantity is not None:
@@ -142,9 +164,77 @@ def cancel_item(db: Session, order: Order, item_id: int) -> Order:
     item = _get_item(order, item_id)
     if item.status == ITEM_CANCELLED:
         raise HTTPException(status_code=409, detail="Món này đã được huỷ trước đó")
-    if item.status not in EDITABLE_ITEM_STATUSES:
-        raise HTTPException(status_code=409, detail="Món đã vào bếp, không thể huỷ")
+    if not _is_editable(item):
+        raise HTTPException(status_code=409, detail="Món đã gửi bếp, không thể huỷ")
     item.status = ITEM_CANCELLED
     db.commit()
     db.refresh(order)
     return order
+
+# ---------- Gửi bếp và trạng thái món ----------
+def send_to_kitchen(db: Session, order: Order) -> Order:
+    """Gửi mọi món mới (đang chờ, chưa gửi) xuống bếp. Gửi nhiều lần được."""
+    _ensure_order_editable(order)
+    unsent = [i for i in order.items if i.status == ITEM_PENDING and i.sent_at is None]
+    if not unsent:
+        raise HTTPException(status_code=400, detail="Không có món mới nào để gửi bếp")
+    for item in unsent:
+        item.sent_at = func.now()
+    order.status = ORDER_SENT
+    db.commit()
+    db.refresh(order)
+    return order
+
+
+def update_item_status(db: Session, user: User, order: Order, item_id: int, new_status: str) -> Order:
+    """Bếp: pending -> cooking -> done. Phục vụ: done -> served. Chỉ đi tiến từng bước."""
+    _ensure_order_editable(order)
+    required_status, allowed_roles = ITEM_TRANSITIONS[new_status]
+    if user.role.name != ADMIN and user.role.name not in allowed_roles:
+        raise HTTPException(status_code=403, detail="Bạn không có quyền đổi món sang trạng thái này")
+
+    item = _get_item(order, item_id)
+    if item.sent_at is None:
+        raise HTTPException(status_code=409, detail="Món chưa được gửi bếp")
+    if item.status != required_status:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Món đang ở trạng thái '{item.status}', chỉ đổi sang '{new_status}' được khi món đang '{required_status}'",
+        )
+    item.status = new_status
+
+    # Mọi món (trừ món huỷ) đã ra hết -> order chuyển sang 'served'
+    live = [i for i in order.items if i.status != ITEM_CANCELLED]
+    if live and all(i.status == ITEM_SERVED for i in live):
+        order.status = ORDER_SERVED
+    db.commit()
+    db.refresh(order)
+    return order
+
+
+def get_kitchen_items(db: Session, branch_id: int | None = None, statuses: list[str] | None = None) -> list[dict]:
+    """Hàng đợi bếp: các món ĐÃ gửi bếp của order còn phục vụ, cũ nhất trước."""
+    query = (
+        select(OrderItem, DiningTable.table_number)
+        .join(Order, OrderItem.order_id == Order.id)
+        .join(DiningTable, Order.table_id == DiningTable.id)
+        .where(Order.status.in_(ORDER_ACTIVE_STATUSES), OrderItem.sent_at.is_not(None))
+        .where(OrderItem.status.in_(statuses or (ITEM_PENDING, ITEM_COOKING, ITEM_DONE)))
+        .order_by(OrderItem.sent_at, OrderItem.id)
+    )
+    if branch_id is not None:
+        query = query.where(Order.branch_id == branch_id)
+    return [
+        {
+            "id": item.id,
+            "order_id": item.order_id,
+            "table_number": table_number,
+            "menu_item_name": item.menu_item.name,
+            "quantity": item.quantity,
+            "note": item.note,
+            "status": item.status,
+            "options": [o.name for o in item.options],
+            "sent_at": item.sent_at,
+        }
+        for item, table_number in db.execute(query)
+    ]

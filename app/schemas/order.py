@@ -1,6 +1,7 @@
 """Schema order, món trong order và tuỳ chọn."""
 from datetime import datetime
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -33,6 +34,8 @@ class OrderItemUpdate(BaseModel):
     note: str | None = Field(default=None, max_length=255)
     option_ids: list[int] | None = None
 
+class ItemStatusUpdate(BaseModel):
+    status: Literal["cooking", "done", "served"]
 
 # ---------- Dữ liệu trả về ----------
 class OrderItemOptionOut(BaseModel):
@@ -54,6 +57,7 @@ class OrderItemOut(BaseModel):
     unit_price: Decimal  # giá món lúc gọi
     note: str | None
     status: str  # pending / cooking / done / served / cancelled
+    sent_at: datetime | None  # None = chưa gửi bếp
     options: list[OrderItemOptionOut]
     line_total: Decimal  # (giá món + tuỳ chọn) x số lượng
 
@@ -77,3 +81,15 @@ class OrderDetailOut(OrderOut):
 
     items: list[OrderItemOut]
     subtotal: Decimal  # tạm tính, không gồm món đã huỷ
+
+class KitchenItemOut(BaseModel):
+    """Một dòng trong màn hình bếp / ra món."""
+    id: int
+    order_id: int
+    table_number: str
+    menu_item_name: str
+    quantity: int
+    note: str | None
+    status: str  # pending / cooking / done
+    options: list[str]
+    sent_at: datetime
