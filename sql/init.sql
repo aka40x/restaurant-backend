@@ -154,6 +154,7 @@ CREATE TABLE IF NOT EXISTS order_items (
     unit_price DECIMAL(10,2) NOT NULL,    -- lưu giá tại thời điểm gọi
     status VARCHAR(20) NOT NULL DEFAULT 'pending',   -- pending / cooking / done / served / cancelled
     note VARCHAR(255),
+    sent_at DATETIME NULL,
     FOREIGN KEY (order_id) REFERENCES orders(id),
     FOREIGN KEY (menu_item_id) REFERENCES menu_items(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
