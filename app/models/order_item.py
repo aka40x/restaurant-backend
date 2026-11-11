@@ -7,6 +7,11 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.session import Base
 from app.models.order_item_option import OrderItemOption
 
+from datetime import datetime
+from decimal import Decimal
+from typing import TYPE_CHECKING
+
+from sqlalchemy import DateTime, ForeignKey, Numeric, String
 if TYPE_CHECKING:
     from app.models.menu_item import MenuItem
     from app.models.order import Order
@@ -29,7 +34,8 @@ class OrderItem(Base):
     unit_price: Mapped[Decimal] = mapped_column(Numeric(10, 2))
     status: Mapped[str] = mapped_column(String(20), default=ITEM_PENDING)
     note: Mapped[str | None] = mapped_column(String(255), nullable=True)
-
+        # Thời điểm gửi bếp. NULL = chưa gửi (waiter còn sửa / huỷ được).
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     order: Mapped["Order"] = relationship(back_populates="items")
     menu_item: Mapped["MenuItem"] = relationship()
     options: Mapped[list[OrderItemOption]] = relationship(
