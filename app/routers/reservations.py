@@ -85,4 +85,4 @@ def cancel_reservation(data: ReservationLookup, db: Session = Depends(get_db)):
         raise HTTPException(status_code=409, detail="Chỉ huỷ được đặt bàn đang chờ hoặc đã xác nhận")
     if reservation.reserved_at <= datetime.now(VN_TZ).replace(tzinfo=None):
         raise HTTPException(status_code=409, detail="Đã qua giờ đặt bàn, không thể huỷ")
-    return reservation_crud.cancel_reservation(db, reservation)
+    return reservation_crud.cancel_reservation(db, reservation) 

@@ -15,4 +15,4 @@ class Customer(Base):
     phone: Mapped[str] = mapped_column(String(20), unique=True)
     email: Mapped[str | None] = mapped_column(String(100), nullable=True)
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)  # trống nếu không đăng ký
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now()) 

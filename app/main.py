@@ -12,8 +12,7 @@ from sqlalchemy.exc import OperationalError
 from app import models  # noqa: F401 - import để SQLAlchemy biết các bảng
 from app.core.config import settings
 from app.db.session import Base, engine
-from app.routers import auth, branches, health, reservations, categories, menu_items, payments, kitchen, orders
-
+from app.routers import auth, branches, health, reservations
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -48,10 +47,7 @@ app.include_router(branches.router, prefix="/api")
 app.include_router(orders.router, prefix="/api")
 app.include_router(kitchen.router, prefix="/api")
 app.include_router(reservations.router, prefix="/api")
-app.include_router(categories.router, prefix="/api")
-app.include_router(menu_items.router, prefix="/api")
-app.include_router(payments.router, prefix="/api")
-
+app.include_router(reservation_admin.router, prefix="/api")
 
 
 @app.get("/")
