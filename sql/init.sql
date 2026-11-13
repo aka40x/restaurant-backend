@@ -154,6 +154,7 @@ CREATE TABLE IF NOT EXISTS order_items (
     unit_price DECIMAL(10,2) NOT NULL,    -- lưu giá tại thời điểm gọi
     status VARCHAR(20) NOT NULL DEFAULT 'pending',   -- pending / cooking / done / served / cancelled
     note VARCHAR(255),
+    sent_at DATETIME NULL,
     FOREIGN KEY (order_id) REFERENCES orders(id),
     FOREIGN KEY (menu_item_id) REFERENCES menu_items(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -275,3 +276,6 @@ INSERT INTO branch_inventories (branch_id, ingredient_id, quantity, min_quantity
 
 INSERT INTO vouchers (code, discount_type, discount_value, min_order_amount, start_date, end_date, usage_limit) VALUES
     ('WELCOME10', 'percent', 10, 200000, '2026-11-01', '2026-12-31', 100);
+USE app_db;
+ALTER TABLE order_items ADD COLUMN sent_at DATETIME NULL AFTER note;
+UPDATE order_items SET sent_at = NOW() WHERE status IN ('cooking','done','served') AND sent_at IS NULL;
