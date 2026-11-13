@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
- 
+
 PHONE_PATTERN = r"^0\d{9,10}$"  # SĐT Việt Nam: bắt đầu bằng 0, 10-11 số
 EMAIL_PATTERN = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
 

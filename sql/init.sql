@@ -228,6 +228,13 @@ CREATE TABLE IF NOT EXISTS branch_inventories (      -- tồn kho từng chi nh�
     FOREIGN KEY (ingredient_id) REFERENCES ingredients(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS revoked_tokens (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    jti VARCHAR(36) NOT NULL UNIQUE,
+    expires_at DATETIME NOT NULL,
+    revoked_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 -- ==========================================================
 -- DỮ LIỆU MẪU (Docker chỉ chạy file này lần đầu trên database mới tạo)
 -- Mật khẩu của mọi tài khoản mẫu: Restaurant@123
@@ -276,6 +283,3 @@ INSERT INTO branch_inventories (branch_id, ingredient_id, quantity, min_quantity
 
 INSERT INTO vouchers (code, discount_type, discount_value, min_order_amount, start_date, end_date, usage_limit) VALUES
     ('WELCOME10', 'percent', 10, 200000, '2026-11-01', '2026-12-31', 100);
-USE app_db;
-ALTER TABLE order_items ADD COLUMN sent_at DATETIME NULL AFTER note;
-UPDATE order_items SET sent_at = NOW() WHERE status IN ('cooking','done','served') AND sent_at IS NULL;

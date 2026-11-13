@@ -6,4 +6,4 @@ from app.models.customer import Customer
 
 
 def get_customer_by_phone(db: Session, phone: str) -> Customer | None:
-    return db.scalar(select(Customer).where(Customer.phone == phone)) 
+    return db.scalar(select(Customer).where(Customer.phone == phone))

@@ -29,6 +29,7 @@ from app.core.security import decode_token
 from app.crud import user as user_crud
 from app.db.session import get_db
 from app.models.user import User
+from app.crud import revoked_token as revoked_crud
 
 # Tên 5 vai trò (khớp bảng roles). Dùng hằng số này, đừng gõ tay chuỗi "admin"... để khỏi sai chính tả.
 ADMIN = "admin"
@@ -56,7 +57,9 @@ def get_optional_user(
     if credentials is None:
         return None
     try:
-        payload = decode_token(credentials.credentials, "access")  # refresh token không dùng được ở đây
+        payload = decode_token(credentials.credentials, "access")
+        if revoked_crud.is_revoked(db, payload.get("jti")):
+            raise _unauthorized("Token đã bị thu hồi, vui lòng đăng nhập lại")
         user = user_crud.get_user(db, int(payload["sub"]))
     except (jwt.InvalidTokenError, KeyError, ValueError):
         raise _unauthorized("Token không hợp lệ hoặc đã hết hạn")

@@ -4,15 +4,16 @@
     POST /api/auth/refresh   gửi refresh token -> access token mới
 """
 import jwt
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 
 from app.core.security import create_access_token, create_refresh_token, decode_token, verify_password
 from app.crud import user as user_crud
+from app.crud import revoked_token as revoked_crud
 from app.db.session import get_db
 from app.models.user import User
-from app.schemas.auth import AccessTokenOut, LoginRequest, RefreshRequest, TokenOut
-from app.core.deps import get_current_user
+from app.schemas.auth import AccessTokenOut, LoginRequest, LogoutRequest, RefreshRequest, TokenOut
+from app.core.deps import bearer_scheme, get_current_user
 from app.schemas.user import UserOut
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -44,6 +45,8 @@ def refresh(data: RefreshRequest, db: Session = Depends(get_db)):
         payload = decode_token(data.refresh_token, "refresh")
     except jwt.InvalidTokenError:  # hết hạn, sai chữ ký, hoặc gửi nhầm access token
         raise HTTPException(status_code=401, detail="Refresh token không hợp lệ hoặc đã hết hạn")
+    if revoked_crud.is_revoked(db, payload.get("jti")):
+        raise HTTPException(status_code=401, detail="Refresh token đã bị thu hồi")
 
     user = user_crud.get_user(db, int(payload["sub"]))
     if user is None or not user.is_active:
@@ -53,3 +56,17 @@ def refresh(data: RefreshRequest, db: Session = Depends(get_db)):
 @router.get("/me", response_model=UserOut)
 def me(user: User = Depends(get_current_user)):
     return user
+
+@router.post("/logout", status_code=204)
+def logout(data: LogoutRequest, credentials=Depends(bearer_scheme), db: Session = Depends(get_db)):
+    pairs = [(data.refresh_token, "refresh")]
+    if credentials is not None:
+        pairs.append((credentials.credentials, "access"))
+    for token, token_type in pairs:
+        try:
+            payload = decode_token(token, token_type)
+        except jwt.InvalidTokenError:
+            continue
+        revoked_crud.revoke(db, payload["jti"], payload["exp"])
+    revoked_crud.purge_expired(db)
+    return Response(status_code=204)

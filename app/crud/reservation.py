@@ -13,7 +13,7 @@ HOLD_MINUTES = 120  # mỗi đặt bàn giữ bàn 120 phút (đề xuất, nhó
 ACTIVE_STATUSES = ("pending", "confirmed", "seated")  # các trạng thái đang chiếm bàn
 CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # bỏ O, 0, I, 1 cho khỏi nhầm
 CANCELLABLE_STATUSES = ("pending", "confirmed")  # khách chỉ huỷ được khi chưa nhận bàn (BR-05)
- 
+
 
 def generate_code(db: Session) -> str:
     """Sinh mã đặt bàn duy nhất, vd DBK7M2XQ."""

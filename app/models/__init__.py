@@ -16,4 +16,6 @@ from app.models.dining_table import DiningTable  # noqa: F401
 from app.models.order import Order  # noqa: F401
 from app.models.order_item import OrderItem  # noqa: F401
 from app.models.order_item_option import OrderItemOption  # noqa: F401
- 
+from app.models.revoked_token import RevokedToken  # noqa: F401
+from app.models.customer import Customer
+from app.models.reservation import Reservation

@@ -48,7 +48,7 @@ class ReservationOut(BaseModel):
     note: str | None
     created_at: datetime
 
- 
+
 class ReservationDetailOut(ReservationOut):
     """Bản đầy đủ kèm chi nhánh và bàn (dùng cho trang tra cứu / quản lý)."""
 
