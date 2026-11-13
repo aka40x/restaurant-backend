@@ -52,6 +52,7 @@ app.include_router(categories.router, prefix="/api")
 app.include_router(menu_items.router, prefix="/api")
 app.include_router(payments.router, prefix="/api")
 
+app.include_router(reservation_admin.router, prefix="/api")
 
 
 @app.get("/")
