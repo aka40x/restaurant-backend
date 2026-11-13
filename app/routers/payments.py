@@ -15,6 +15,8 @@ from app.crud import bill as bill_crud
 from app.crud.bill_rules import BillError
 from app.db.session import get_db
 from app.schemas.bill import BillOut
+from app.crud import revoked_token as revoked_crud
+
 
 router = APIRouter(prefix="/payments", tags=["Payments"])
 
@@ -52,3 +54,15 @@ def get_bill(
         return bill_crud.build_bill(db, order_id, voucher_code, only_branch_id)
     except BillError as error:
         raise HTTPException(status_code=error.status_code, detail=error.message)
+
+def get_token_payload(
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+    db: Session = Depends(get_db),
+) -> dict:
+    try:
+        payload = decode_token(credentials.credentials, "access")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Token không hợp lệ hoặc đã hết hạn")
+    if revoked_crud.is_revoked(db, payload.get("jti")):
+        raise HTTPException(status_code=401, detail="Token đã bị thu hồi, vui lòng đăng nhập lại")
+    return payload

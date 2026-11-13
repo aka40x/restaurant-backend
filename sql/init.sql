@@ -228,6 +228,13 @@ CREATE TABLE IF NOT EXISTS branch_inventories (      -- tồn kho từng chi nh�
     FOREIGN KEY (ingredient_id) REFERENCES ingredients(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS revoked_tokens (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    jti VARCHAR(36) NOT NULL UNIQUE,
+    expires_at DATETIME NOT NULL,
+    revoked_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 -- ==========================================================
 -- DỮ LIỆU MẪU (Docker chỉ chạy file này lần đầu trên database mới tạo)
 -- Mật khẩu của mọi tài khoản mẫu: Restaurant@123
