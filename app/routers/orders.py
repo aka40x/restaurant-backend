@@ -17,7 +17,14 @@ from app.core.deps import MANAGER, WAITER, check_branch_access, get_current_user
 from app.crud import order as order_crud
 from app.db.session import get_db
 from app.models.user import User
-from app.schemas.order import OrderCreate, OrderDetailOut, OrderItemCreate, OrderItemUpdate, OrderOut
+from app.schemas.order import (
+    ItemStatusUpdate,
+    OrderCreate,
+    OrderDetailOut,
+    OrderItemCreate,
+    OrderItemUpdate,
+    OrderOut,
+)
 
 router = APIRouter(prefix="/orders", tags=["Orders"])
 
@@ -69,3 +76,19 @@ def update_item(item_id: int, data: OrderItemUpdate, order=Depends(get_order_or_
 @router.delete("/{order_id}/items/{item_id}", response_model=OrderDetailOut, dependencies=[can_order])
 def cancel_item(item_id: int, order=Depends(get_order_or_404), db: Session = Depends(get_db)):
     return order_crud.cancel_item(db, order, item_id)
+
+@router.post("/{order_id}/send-to-kitchen", response_model=OrderDetailOut, dependencies=[can_order])
+def send_to_kitchen(order=Depends(get_order_or_404), db: Session = Depends(get_db)):
+    return order_crud.send_to_kitchen(db, order)
+
+
+# Quyền (bếp hay phục vụ) được kiểm tra trong crud vì phụ thuộc trạng thái đích
+@router.put("/{order_id}/items/{item_id}/status", response_model=OrderDetailOut)
+def update_item_status(
+    item_id: int,
+    data: ItemStatusUpdate,
+    order=Depends(get_order_or_404),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return order_crud.update_item_status(db, user, order, item_id, data.status)

@@ -12,7 +12,7 @@ from app.db.session import Base
 from app.models.branch import Branch
 from app.models.customer import Customer
 from app.models.dining_table import DiningTable
-
+ 
 
 class Reservation(Base):
     __tablename__ = "reservations"
