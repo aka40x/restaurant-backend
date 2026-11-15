@@ -1,4 +1,3 @@
-
 """API thanh toán (M5). Đường dẫn đầy đủ: /api/payments
 
     GET /api/payments/bill/{order_id}   xem hoá đơn tạm của order (tạm tính, giảm giá, tổng).
@@ -9,48 +8,31 @@ Quyền xem hoá đơn: cashier, manager (đúng chi nhánh của order) và adm
 Thanh toán (POST): chỉ cashier, đúng chi nhánh của order.
 """
 
-import jwt
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
-from app.core.security import decode_token
+from app.core.deps import get_current_user
 from app.crud import bill as bill_crud
 from app.crud import payment as payment_crud
-from app.crud import revoked_token as revoked_crud
 from app.crud.bill_rules import BillError
 from app.db.session import get_db
+from app.models.user import User
 from app.schemas.bill import BillOut
 from app.schemas.payment import PaymentCreate, PaymentOut
 
 router = APIRouter(prefix="/payments", tags=["Payments"])
 
-bearer_scheme = HTTPBearer()
-
 BILL_ROLES = {"admin", "manager", "cashier"}
 PAY_ROLES = {"cashier"}
 
 
-def get_token_payload(
-    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
-    db: Session = Depends(get_db),
-) -> dict:
-    """Kiểm tra access token và token đã bị thu hồi hay chưa."""
-    try:
-        payload = decode_token(credentials.credentials, "access")
-    except jwt.InvalidTokenError:
-        raise HTTPException(
-            status_code=401,
-            detail="Token không hợp lệ hoặc đã hết hạn"
-        )
+def get_token_payload(user: User = Depends(get_current_user)) -> dict:
+    """Lấy người dùng từ token qua get_current_user dùng chung của cả hệ thống.
 
-    if revoked_crud.is_revoked(db, payload.get("jti")):
-        raise HTTPException(
-            status_code=401,
-            detail="Token đã bị thu hồi, vui lòng đăng nhập lại"
-        )
-
-    return payload
+    get_current_user đã kiểm tra: token hợp lệ, chưa bị thu hồi (logout), tài khoản còn tồn tại
+    và còn hoạt động. Vai trò và chi nhánh lấy từ DB nên đổi vai trò hay khoá tài khoản có hiệu lực ngay.
+    """
+    return {"sub": user.id, "role": user.role.name, "branch_id": user.branch_id}
 
 
 @router.get("/bill/{order_id}", response_model=BillOut)
@@ -117,7 +99,7 @@ def create_payment(
         )
 
     try:
-        # cashier_id lấy từ token, không nhận từ FE.
+        # cashier_id lấy từ tài khoản đang đăng nhập, không nhận từ FE.
         return payment_crud.pay_order(
             db,
             data,

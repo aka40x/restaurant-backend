@@ -7,12 +7,12 @@ import jwt
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 
-from app.core.security import create_access_token, create_refresh_token, decode_token, verify_password
+from app.core.security import create_access_token, create_refresh_token, decode_token, hash_password, verify_password
 from app.crud import user as user_crud
 from app.crud import revoked_token as revoked_crud
 from app.db.session import get_db
 from app.models.user import User
-from app.schemas.auth import AccessTokenOut, LoginRequest, LogoutRequest, RefreshRequest, TokenOut
+from app.schemas.auth import AccessTokenOut, ChangePasswordRequest, LoginRequest, LogoutRequest, RefreshRequest, TokenOut
 from app.core.deps import bearer_scheme, get_current_user
 from app.schemas.user import UserOut
 
@@ -69,4 +69,19 @@ def logout(data: LogoutRequest, credentials=Depends(bearer_scheme), db: Session 
             continue
         revoked_crud.revoke(db, payload["jti"], payload["exp"])
     revoked_crud.purge_expired(db)
+    return Response(status_code=204)
+
+@router.post("/change-password", status_code=204)
+def change_password(
+    data: ChangePasswordRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not verify_password(data.current_password, user.password_hash):
+        # cố ý dùng 400 chứ không phải 401, để FE không tưởng là hết phiên rồi tự đăng xuất
+        raise HTTPException(status_code=400, detail="Mật khẩu hiện tại không đúng")
+    if data.new_password == data.current_password:
+        raise HTTPException(status_code=400, detail="Mật khẩu mới phải khác mật khẩu hiện tại")
+    user.password_hash = hash_password(data.new_password)
+    db.commit()
     return Response(status_code=204)
