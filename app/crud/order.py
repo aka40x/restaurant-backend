@@ -24,6 +24,7 @@ from app.models.order_item import (
 )
 from app.models.order_item_option import OrderItemOption
 from app.models.user import User
+from app.crud.stock import consume_for_dish  # M5: tự trừ kho khi món xong
 from app.schemas.order import OrderCreate, OrderItemCreate, OrderItemUpdate
 from sqlalchemy import func, select
 
@@ -202,6 +203,9 @@ def update_item_status(db: Session, user: User, order: Order, item_id: int, new_
             detail=f"Món đang ở trạng thái '{item.status}', chỉ đổi sang '{new_status}' được khi món đang '{required_status}'",
         )
     item.status = new_status
+    if new_status == ITEM_DONE:
+        # Món xong -> tự trừ nguyên liệu theo công thức (M5). Không commit ở đây: cùng transaction với việc đổi trạng thái.
+        consume_for_dish(db, order.branch_id, item.menu_item_id, item.quantity)
 
     # Mọi món (trừ món huỷ) đã ra hết -> order chuyển sang 'served'
     live = [i for i in order.items if i.status != ITEM_CANCELLED]
