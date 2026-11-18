@@ -12,7 +12,8 @@ from sqlalchemy.exc import OperationalError
 from app import models  # noqa: F401 - import để SQLAlchemy biết các bảng
 from app.core.config import settings
 from app.db.session import Base, engine
-from app.routers import auth, branches, health, reservations, categories, menu_items, payments, kitchen, orders, reservation_admin, menu_item_options, users, ingredients, inventory, recipes, dining_tables
+from app.routers import auth, branches, health, reservations, categories, menu_items, payments, kitchen, orders, reservation_admin, reservation_checkin, menu_item_options, users, ingredients, inventory, recipes, dining_tables
+from app.core.no_show_job import start_no_show_job  # phải import SAU routers (tránh vòng import deps <-> user)
 
 
 @asynccontextmanager
@@ -26,7 +27,9 @@ async def lifespan(app: FastAPI):
     except OperationalError as error:
         print("[DB] KHÔNG kết nối được MySQL! Kiểm tra MySQL đã bật chưa và file .env.")
         print(f"[DB] Chi tiết: {error.orig}")
+    no_show_job = start_no_show_job()  # tự đánh dấu không đến mỗi phút (T3C65F6)
     yield
+    no_show_job.cancel()
 
 
 app = FastAPI(title=settings.APP_NAME, lifespan=lifespan)
@@ -59,6 +62,7 @@ app.include_router(inventory.router, prefix="/api")
 app.include_router(dining_tables.router, prefix="/api")
 
 app.include_router(reservation_admin.router, prefix="/api")
+app.include_router(reservation_checkin.router, prefix="/api")
 
 
 @app.get("/")
