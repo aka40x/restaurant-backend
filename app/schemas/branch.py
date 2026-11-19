@@ -17,11 +17,15 @@ class BranchBase(BaseModel):
 
 
 class BranchCreate(BranchBase):
-    """Dữ liệu FE gửi lên khi THÊM mới."""
+    """Dữ liệu FE gửi lên khi THÊM mới. Tự cắt khoảng trắng đầu/cuối. (Số điện thoại, giờ mở/đóng được kiểm tra ở crud/branch.py)"""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
 
 
 class BranchUpdate(BaseModel):
-    """Dữ liệu FE gửi lên khi SỬA. Trường nào không gửi thì giữ nguyên."""
+    """Dữ liệu FE gửi lên khi SỬA. Trường nào không gửi thì giữ nguyên. (Số điện thoại, giờ mở/đóng được kiểm tra ở crud/branch.py)"""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
 
     name: str | None = Field(default=None, min_length=1, max_length=100)
     address: str | None = Field(default=None, min_length=1, max_length=255)

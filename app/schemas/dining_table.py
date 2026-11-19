@@ -12,6 +12,7 @@ class DiningTableBase(BaseModel):
     area: str | None = Field(default=None, max_length=50, examples=["Tầng 1"])
     status: TableStatus = "available"
     is_active: bool = True
+    model_config = ConfigDict(str_strip_whitespace=True)
 
 
 class DiningTableCreate(DiningTableBase):
@@ -24,6 +25,7 @@ class DiningTableUpdate(BaseModel):
     area: str | None = Field(default=None, max_length=50)
     status: TableStatus | None = None
     is_active: bool | None = None
+    model_config = ConfigDict(str_strip_whitespace=True)
 
 
 class DiningTableOut(DiningTableBase):

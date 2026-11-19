@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 
 import bcrypt
 import jwt
+import uuid
 
 from app.core.config import settings
 
@@ -34,6 +35,7 @@ def _create_token(data: dict, token_type: str, expires_delta: timedelta) -> str:
     payload = {
         **data,
         "type": token_type,
+        "jti": uuid.uuid4().hex,
         "exp": datetime.now(timezone.utc) + expires_delta,
     }
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
