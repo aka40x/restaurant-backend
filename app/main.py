@@ -12,7 +12,7 @@ from sqlalchemy.exc import OperationalError
 from app import models  # noqa: F401 - import để SQLAlchemy biết các bảng
 from app.core.config import settings
 from app.db.session import Base, engine
-from app.routers import auth, branches, health, reservations, categories, menu_items, payments, kitchen, orders, reservation_admin, menu_item_options, users, ingredients, inventory, recipes, dining_tables
+from app.routers import auth, branches, health, reservations, categories, menu_items, payments, kitchen, orders, reservation_admin, reservation_checkin, menu_item_options, users, ingredients, inventory, recipes, dining_tables
 
 
 @asynccontextmanager
@@ -57,9 +57,8 @@ app.include_router(ingredients.router, prefix="/api")
 app.include_router(recipes.router, prefix="/api")
 app.include_router(inventory.router, prefix="/api")
 app.include_router(dining_tables.router, prefix="/api")
-
 app.include_router(reservation_admin.router, prefix="/api")
-
+app.include_router(reservation_checkin.router, prefix="/api")
 
 @app.get("/")
 def root():
