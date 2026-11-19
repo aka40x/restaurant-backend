@@ -9,11 +9,12 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.deps import check_branch_access
+from app.crud.stock import consume_for_dish  # món xong -> trừ kho (M5)
 from app.models.dining_table import DiningTable
 from app.models.menu_item import MenuItem
 from app.models.menu_item_option import MenuItemOption
 from app.core.deps import ADMIN, KITCHEN, MANAGER, WAITER, check_branch_access
-from app.models.order import ORDER_ACTIVE_STATUSES, ORDER_OPEN, ORDER_SENT, ORDER_SERVED, Order
+from app.models.order import ORDER_ACTIVE_STATUSES, ORDER_CANCELLED, ORDER_OPEN, ORDER_SENT, ORDER_SERVED, Order
 from app.models.order_item import (
     ITEM_CANCELLED,
     ITEM_COOKING,
@@ -24,8 +25,7 @@ from app.models.order_item import (
 )
 from app.models.order_item_option import OrderItemOption
 from app.models.user import User
-from app.crud.stock import consume_for_dish  # M5: tự trừ kho khi món xong
-from app.schemas.order import OrderCreate, OrderItemCreate, OrderItemUpdate
+from app.schemas.order import OrderCreate, OrderItemCreate, OrderItemUpdate, OrderSplit
 from sqlalchemy import func, select
 
 # Món chỉ được sửa / huỷ khi còn chờ VÀ chưa gửi bếp (sent_at trống).
@@ -242,3 +242,156 @@ def get_kitchen_items(db: Session, branch_id: int | None = None, statuses: list[
         }
         for item, table_number in db.execute(query)
     ]
+# ---------- Chuyển bàn, gộp bàn, tách món ----------
+def _lock_free_table(db: Session, branch_id: int, table_id: int) -> DiningTable:
+    """Lấy bàn đích (khoá dòng để 2 người không cùng chuyển vào 1 bàn) và kiểm tra bàn đang trống."""
+    table = db.scalar(select(DiningTable).where(DiningTable.id == table_id).with_for_update())
+    if table is None or not table.is_active:
+        raise HTTPException(status_code=404, detail=f"Không tìm thấy bàn id={table_id}")
+    if table.branch_id != branch_id:
+        raise HTTPException(status_code=400, detail=f"Bàn {table.table_number} thuộc chi nhánh khác")
+    if table.status == "reserved":
+        raise HTTPException(status_code=409, detail=f"Bàn {table.table_number} đang được đặt trước")
+    if _get_active_order_of_table(db, table.id) is not None:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Bàn {table.table_number} đang có order chưa thanh toán. Muốn dồn vào bàn đó thì dùng gộp bàn",
+        )
+    return table
+
+
+def _release_table(db: Session, table_id: int) -> None:
+    """Bàn không còn order nào đang phục vụ -> trống."""
+    table = db.get(DiningTable, table_id)
+    if table is not None:
+        table.status = "available"
+
+
+def _sync_order_status(order: Order) -> None:
+    """Tính lại trạng thái order từ các món (dùng sau khi gộp / tách làm đổi danh sách món)."""
+    live = [i for i in order.items if i.status != ITEM_CANCELLED]
+    if live and all(i.status == ITEM_SERVED for i in live):
+        order.status = ORDER_SERVED
+    elif any(i.sent_at is not None and i.status != ITEM_SERVED for i in live):
+        order.status = ORDER_SENT  # còn món đang ở bếp
+    else:
+        order.status = ORDER_OPEN  # chưa gửi bếp gì, hoặc đã ra món hết nhưng còn món mới chưa gửi
+
+
+def transfer_order(db: Session, order: Order, table_id: int) -> Order:
+    """Chuyển cả order sang một bàn TRỐNG khác. Bàn cũ về trống, bàn mới có khách."""
+    _ensure_order_editable(order)
+    if table_id == order.table_id:
+        raise HTTPException(status_code=400, detail="Order đang ở bàn này rồi")
+    target = _lock_free_table(db, order.branch_id, table_id)
+    old_table_id = order.table_id
+    order.table_id = target.id
+    target.status = "occupied"
+    _release_table(db, old_table_id)
+    db.commit()
+    db.refresh(order)
+    return order
+
+
+def merge_orders(db: Session, user: User, target: Order, source_order_id: int) -> tuple[Order, Order]:
+    """Gộp order `source` vào order `target`: mọi món chuyển sang target, source đóng lại, bàn của source trống.
+
+    Trả về (target, source).
+    """
+    _ensure_order_editable(target)
+    if source_order_id == target.id:
+        raise HTTPException(status_code=400, detail="Không thể gộp một order vào chính nó")
+    source = db.get(Order, source_order_id)
+    if source is None:
+        raise HTTPException(status_code=404, detail=f"Không tìm thấy order id={source_order_id}")
+    check_branch_access(user, source.branch_id)
+    if source.branch_id != target.branch_id:
+        raise HTTPException(status_code=400, detail="Hai order thuộc hai chi nhánh khác nhau")
+    _ensure_order_editable(source)
+
+    for item in list(source.items):
+        target.items.append(item)  # đổi chủ: món sang order đích, giữ nguyên trạng thái và giờ gửi bếp
+    if target.reservation_id is None:
+        target.reservation_id = source.reservation_id
+    source.status = ORDER_CANCELLED  # order gốc không còn tiền, chỉ để lại dấu vết
+    source.closed_at = func.now()
+    source.note = f"Đã gộp vào order #{target.id}"
+    if source.table_id != target.table_id:
+        _release_table(db, source.table_id)
+    target_table = db.get(DiningTable, target.table_id)
+    if target_table is not None:
+        target_table.status = "occupied"
+
+    db.flush()
+    db.expire(target)  # nạp lại danh sách món từ DB rồi mới tính trạng thái
+    db.expire(source)
+    _sync_order_status(target)
+    db.commit()
+    db.refresh(target)
+    db.refresh(source)
+    return target, source
+
+
+def split_order(db: Session, order: Order, data: OrderSplit) -> tuple[Order, Order]:
+    """Tách một số món (hoặc một phần số lượng) sang order MỚI ở một bàn trống khác.
+
+    Mỗi bàn chỉ có 1 order đang phục vụ nên order mới bắt buộc nằm ở bàn khác. Trả về (order gốc, order mới).
+    """
+    _ensure_order_editable(order)
+    item_ids = [entry.item_id for entry in data.items]
+    if len(set(item_ids)) != len(item_ids):
+        raise HTTPException(status_code=400, detail="Mỗi món chỉ được chọn một lần")
+
+    moves: list[tuple[OrderItem, int]] = []
+    for entry in data.items:
+        item = _get_item(order, entry.item_id)
+        if item.status == ITEM_CANCELLED:
+            raise HTTPException(status_code=409, detail=f"Món '{item.menu_item.name}' đã huỷ, không thể tách")
+        quantity = entry.quantity if entry.quantity is not None else item.quantity
+        if quantity > item.quantity:
+            raise HTTPException(
+                status_code=400, detail=f"Món '{item.menu_item.name}' chỉ có {item.quantity} phần, không tách được {quantity}"
+            )
+        moves.append((item, quantity))
+
+    moved = {item.id: quantity for item, quantity in moves}
+    stays = [i for i in order.items if i.status != ITEM_CANCELLED and i.quantity - moved.get(i.id, 0) > 0]
+    if not stays:
+        raise HTTPException(status_code=400, detail="Không thể tách hết món. Muốn dời cả order sang bàn khác thì dùng chuyển bàn")
+
+    target_table = _lock_free_table(db, order.branch_id, data.table_id)
+    new_order = Order(
+        branch_id=order.branch_id,
+        table_id=target_table.id,
+        waiter_id=order.waiter_id,
+        status=ORDER_OPEN,
+        note=data.note or f"Tách từ order #{order.id}",
+    )
+    db.add(new_order)
+    for item, quantity in moves:
+        if quantity == item.quantity:
+            new_order.items.append(item)  # chuyển nguyên dòng món
+        else:  # tách một phần số lượng: dòng cũ giảm, dòng mới có cùng trạng thái, tuỳ chọn, giờ gửi bếp
+            item.quantity -= quantity
+            new_order.items.append(
+                OrderItem(
+                    menu_item_id=item.menu_item_id,
+                    quantity=quantity,
+                    unit_price=item.unit_price,
+                    status=item.status,
+                    note=item.note,
+                    sent_at=item.sent_at,
+                    options=[OrderItemOption(option_id=o.option_id, extra_price=o.extra_price) for o in item.options],
+                )
+            )
+    target_table.status = "occupied"
+
+    db.flush()
+    db.expire(order)
+    db.expire(new_order)
+    _sync_order_status(order)
+    _sync_order_status(new_order)
+    db.commit()
+    db.refresh(order)
+    db.refresh(new_order)
+    return order, new_order
