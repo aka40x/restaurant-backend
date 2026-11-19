@@ -9,6 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.deps import check_branch_access
+from app.crud.stock import consume_for_dish  # món xong -> trừ kho (M5)
 from app.models.dining_table import DiningTable
 from app.models.menu_item import MenuItem
 from app.models.menu_item_option import MenuItemOption
