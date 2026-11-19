@@ -14,8 +14,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.deps import MANAGER, WAITER, check_branch_access, get_current_user, require_roles, resolve_branch_id
+from app.core.realtime import publish_item_status, publish_order_changed, publish_order_sent
 from app.crud import order as order_crud
 from app.db.session import get_db
+from app.models.order_item import ITEM_PENDING
 from app.models.user import User
 from app.schemas.order import (
     ItemStatusUpdate,
@@ -24,6 +26,10 @@ from app.schemas.order import (
     OrderItemCreate,
     OrderItemUpdate,
     OrderOut,
+    OrderMerge,
+    OrderSplit,
+    OrderSplitOut,
+    OrderTransfer,
 )
 
 router = APIRouter(prefix="/orders", tags=["Orders"])
@@ -79,7 +85,10 @@ def cancel_item(item_id: int, order=Depends(get_order_or_404), db: Session = Dep
 
 @router.post("/{order_id}/send-to-kitchen", response_model=OrderDetailOut, dependencies=[can_order])
 def send_to_kitchen(order=Depends(get_order_or_404), db: Session = Depends(get_db)):
-    return order_crud.send_to_kitchen(db, order)
+    sent_ids = [i.id for i in order.items if i.status == ITEM_PENDING and i.sent_at is None]  # các món sắp được gửi bếp
+    order = order_crud.send_to_kitchen(db, order)
+    publish_order_sent(db, order, sent_ids)  # báo realtime: bếp thấy món mới ngay
+    return order
 
 
 # Quyền (bếp hay phục vụ) được kiểm tra trong crud vì phụ thuộc trạng thái đích
@@ -91,4 +100,29 @@ def update_item_status(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return order_crud.update_item_status(db, user, order, item_id, data.status)
+    order = order_crud.update_item_status(db, user, order, item_id, data.status)
+    item = next(i for i in order.items if i.id == item_id)
+    publish_item_status(db, order, item)  # báo realtime: bếp nhận / nấu xong (báo phục vụ) / đã ra món
+    return order
+@router.post("/{order_id}/transfer", response_model=OrderDetailOut, dependencies=[can_order])
+def transfer_order(data: OrderTransfer, order=Depends(get_order_or_404), db: Session = Depends(get_db)):
+    from_table_id = order.table_id
+    order = order_crud.transfer_order(db, order, data.table_id)
+    publish_order_changed(db, "transfer", order, from_table_id=from_table_id)  # bếp thấy thẻ món đổi bàn ngay
+    return order
+
+
+@router.post("/{order_id}/merge", response_model=OrderDetailOut, dependencies=[can_order])
+def merge_orders(
+    data: OrderMerge, order=Depends(get_order_or_404), user: User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    order, source = order_crud.merge_orders(db, user, order, data.source_order_id)
+    publish_order_changed(db, "merge", order, other=source)
+    return order
+
+
+@router.post("/{order_id}/split", response_model=OrderSplitOut, status_code=status.HTTP_201_CREATED, dependencies=[can_order])
+def split_order(data: OrderSplit, order=Depends(get_order_or_404), db: Session = Depends(get_db)):
+    order, new_order = order_crud.split_order(db, order, data)
+    publish_order_changed(db, "split", order, other=new_order)
+    return {"source_order": order, "new_order": new_order}  # FastAPI đổi 2 order này sang OrderSplitOut
