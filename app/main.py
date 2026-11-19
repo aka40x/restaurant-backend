@@ -60,7 +60,6 @@ app.include_router(ingredients.router, prefix="/api")
 app.include_router(recipes.router, prefix="/api")
 app.include_router(inventory.router, prefix="/api")
 app.include_router(dining_tables.router, prefix="/api")
-
 app.include_router(reservation_admin.router, prefix="/api")
 app.include_router(reservation_checkin.router, prefix="/api")
 app.include_router(pos.router, prefix="/api")  # màn hình gọi món: bàn + thực đơn
