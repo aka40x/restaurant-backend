@@ -66,22 +66,44 @@ USERS = [  # (email, họ tên, vai trò, chi nhánh theo tên hoặc None, sđt
 ]
 LOCKED_EMAILS = {"locked@restaurant.com"}
 
-CATEGORIES = ["Pizza", "Pasta", "Salad", "Đồ uống", "Tráng miệng"]
+CATEGORIES = ["Khai vị", "Pizza", "Pasta", "Salad", "Đồ uống", "Tráng miệng"]
 
 MENU = [  # (danh mục, tên, mô tả, giá, còn món?)
     ("Pizza", "Pizza Margherita", "Pizza phủ mozzarella và cà chua", 150000, True),
     ("Pizza", "Pizza Hải Sản", "Pizza hải sản tươi", 190000, True),
     ("Pizza", "Pizza Pepperoni", "Xúc xích cay kiểu Ý", 170000, True),
+    ("Pizza", "Pizza Phô Mai 4 Loại", "Mozzarella, gorgonzola, parmesan, fontina", 180000, True),
+    ("Pizza", "Pizza Hawaii", "Dứa và giăm bông", 160000, True),
     ("Pasta", "Mì Ý Cua", "Mì Ý sốt cua béo", 180000, True),
     ("Pasta", "Mì Ý Carbonara", "Sốt kem trứng và thịt xông khói", 160000, True),
+    ("Pasta", "Mì Ý Bò Bằm", "Mì Ý sốt cà chua bò bằm", 165000, True),
+    ("Pasta", "Mì Ý Hải Sản Sốt Cà", "Tôm, mực, nghêu sốt cà chua", 185000, True),
+    ("Pasta", "Lasagna Bò Nướng Phô Mai", "Lasagna bò bằm nướng phô mai", 170000, True),
+    ("Khai vị", "Bánh Mì Bơ Tỏi", "Bánh mì nướng bơ tỏi giòn", 45000, True),
+    ("Khai vị", "Súp Kem Nấm", "Súp kem nấm nóng", 55000, True),
+    ("Khai vị", "Khoai Tây Chiên", "Khoai tây chiên giòn", 50000, True),
     ("Salad", "Salad Rau Củ", "Rau củ tươi trong ngày", 90000, True),
     ("Salad", "Salad Caesar", "Gà nướng, phô mai parmesan", 110000, True),
+    ("Đồ uống", "Chanh Tươi", "Chanh tươi mát lạnh", 40000, True),
+    ("Đồ uống", "Cà Phê Sữa Đá", "Cà phê phin sữa đá", 35000, True),
+    ("Đồ uống", "Nước Suối", "Chai 500ml", 20000, True),
     ("Đồ uống", "Nước ép cam", "Cam vắt tươi", 50000, True),
     ("Đồ uống", "Trà đào", "Trà đào cam sả", 45000, True),
     ("Đồ uống", "Coca-Cola", "Lon 330ml", 30000, True),
+    ("Tráng miệng", "Kem Gelato", "Kem kiểu Ý, 2 viên", 55000, True),
+    ("Tráng miệng", "Bánh Phô Mai", "Cheesecake kiểu New York", 75000, True),
     ("Tráng miệng", "Tiramisu", "Bánh tiramisu cacao", 70000, True),
     ("Tráng miệng", "Panna Cotta", "Món đang hết hàng", 65000, False),
 ]
+
+MENU_IMAGES = {
+    "Pizza Margherita": "assets/images/menu/pizza-margherita.svg",
+    "Pizza Hải Sản": "assets/images/menu/pizza-hai-san.svg",
+    "Mì Ý Cua": "assets/images/menu/mi-y-cua.svg",
+    "Salad Rau Củ": "assets/images/menu/salad-rau-cu.svg",
+    "Nước ép cam": "assets/images/menu/nuoc-ep-cam.svg",
+}
+
 OPTIONS = [  # (tên món, tên tuỳ chọn, size, topping, giá thêm)
     ("Pizza Margherita", "Size M", "M", None, 20000),
     ("Pizza Margherita", "Size L", "L", None, 40000),
@@ -100,16 +122,19 @@ TABLES = {  # tên chi nhánh -> [(số bàn, số ghế, khu vực)]
 
 CUSTOMERS = [("Nguyễn Khách Một", "0911000001"), ("Trần Khách Hai", "0911000002"), ("Lê Khách Ba", "0911000003")]
 
-INGREDIENTS = [("Bột mì", "g"), ("Phô mai mozzarella", "g"), ("Cà chua", "g"), ("Cua", "g"), ("Mì Ý", "g"), ("Thịt xông khói", "g"), ("Cam tươi", "g")]
+INGREDIENTS = [("Bột mì", "g"), ("Phô mai mozzarella", "g"), ("Cà chua", "g"), ("Cua", "g"), ("Mì Ý", "g"), ("Thịt xông khói", "g"), ("Cam tươi", "g"), ("Thịt bò bằm", "g"), ("Khoai tây", "g"),]
 RECIPES = [  # (tên món, nguyên liệu, lượng cho 1 phần)
     ("Pizza Margherita", "Bột mì", 200), ("Pizza Margherita", "Phô mai mozzarella", 100), ("Pizza Margherita", "Cà chua", 80),
     ("Pizza Hải Sản", "Bột mì", 200), ("Pizza Hải Sản", "Phô mai mozzarella", 100),
     ("Mì Ý Cua", "Mì Ý", 150), ("Mì Ý Cua", "Cua", 80),
     ("Mì Ý Carbonara", "Mì Ý", 150), ("Mì Ý Carbonara", "Thịt xông khói", 60),
     ("Nước ép cam", "Cam tươi", 300),
+    ("Mì Ý Bò Bằm", "Mì Ý", 150), ("Mì Ý Bò Bằm", "Thịt bò bằm", 100), ("Mì Ý Bò Bằm", "Cà chua", 80),
+    ("Khoai Tây Chiên", "Khoai tây", 200),
+    ("Pizza Hawaii", "Bột mì", 200), ("Pizza Hawaii", "Phô mai mozzarella", 100),
 ]
 INVENTORY = {"Bột mì": (5000, 1000), "Phô mai mozzarella": (3000, 500), "Cà chua": (2000, 400), "Cua": (1500, 300),
-             "Mì Ý": (4000, 800), "Thịt xông khói": (1200, 300), "Cam tươi": (350, 400)}  # Cam tươi: dưới mức tối thiểu (để thử cảnh báo)
+             "Mì Ý": (4000, 800), "Thịt xông khói": (1200, 300), "Cam tươi": (350, 400), "Thịt bò bằm": (2000, 400), "Khoai tây": (3000, 500),}  # Cam tươi: dưới mức tối thiểu (để thử cảnh báo)
 
 VOUCHERS = [  # (mã, loại, giá trị, đơn tối thiểu, bắt đầu, kết thúc, số lượt, đang hoạt động)
     ("WELCOME10", "percent", 10, 200000, -30, 60, 100, True),
@@ -176,8 +201,12 @@ def seed(db: Session) -> Stats:
     for category, name, description, price, available in MENU:
         items[name] = get_or_create(
             db, stats, MenuItem, {"name": name},
-            {"category_id": categories[category].id, "description": description, "price": Decimal(price), "is_available": available},
+            {"category_id": categories[category].id, "description": description, "price": Decimal(price),
+             "is_available": available, "image_url": MENU_IMAGES.get(name)},
         )
+        # DB đã có món từ trước mà chưa có ảnh thì bổ sung; món đã có ảnh (sửa tay) thì giữ nguyên
+        if items[name].image_url is None and name in MENU_IMAGES:
+            items[name].image_url = MENU_IMAGES[name]
     options = {}
     for item_name, name, size, topping, extra in OPTIONS:
         options[(item_name, name)] = get_or_create(
