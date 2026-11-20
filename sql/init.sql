@@ -283,3 +283,7 @@ INSERT INTO branch_inventories (branch_id, ingredient_id, quantity, min_quantity
 
 INSERT INTO vouchers (code, discount_type, discount_value, min_order_amount, start_date, end_date, usage_limit) VALUES
     ('WELCOME10', 'percent', 10, 200000, '2026-11-01', '2026-12-31', 100);
+
+UPDATE categories SET sort_order = CASE name
+  WHEN 'Khai vị' THEN 1 WHEN 'Pizza' THEN 2 WHEN 'Pasta' THEN 3
+  WHEN 'Salad' THEN 4 WHEN 'Đồ uống' THEN 5 WHEN 'Tráng miệng' THEN 6 END;
