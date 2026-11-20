@@ -18,8 +18,7 @@ from app.schemas.payment import PaymentCreate
 
 # Trạng thái order cho phép thanh toán (init.sql: open / sent / served / paid / cancelled).
 # Cần chốt lại với người làm module Order nếu nhóm muốn chỉ cho thanh toán khi đã 'served'.
-PAYABLE_STATUSES = {"open", "sent", "served"}
-
+PAYABLE_STATUSES = {"served"}
 
 def pay_order(db: Session, data: PaymentCreate, cashier_id: int, only_branch_id: int | None = None) -> Payment:
     """Thanh toán một order: tính lại tiền, kiểm tra lại voucher, ghi payments, đóng order, trả bàn.
@@ -42,7 +41,7 @@ def pay_order(db: Session, data: PaymentCreate, cashier_id: int, only_branch_id:
         if order["status"] == "cancelled":
             raise BillError("Order đã bị huỷ, không thể thanh toán", 409)
         if order["status"] not in PAYABLE_STATUSES:
-            raise BillError(f"Order đang ở trạng thái '{order['status']}', chưa thể thanh toán", 409)
+            raise BillError("Order chưa được phục vụ xong, chưa thể thanh toán", 409)
 
         already_paid = db.execute(
             text("SELECT id FROM payments WHERE order_id = :id"), {"id": data.order_id}

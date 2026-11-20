@@ -93,3 +93,34 @@ class KitchenItemOut(BaseModel):
     status: str  # pending / cooking / done
     options: list[str]
     sent_at: datetime
+
+class OrderTransfer(BaseModel):
+    """Chuyển order sang bàn khác (bàn đích phải trống)."""
+
+    table_id: int
+
+
+class OrderMerge(BaseModel):
+    """Gộp order `source_order_id` vào order trong đường dẫn (order này được giữ lại)."""
+
+    source_order_id: int
+
+
+class SplitItem(BaseModel):
+    item_id: int
+    quantity: int | None = Field(default=None, ge=1, le=99, description="Số phần cần tách; bỏ trống = tách cả dòng món")
+
+
+class OrderSplit(BaseModel):
+    """Tách món sang order mới ở một bàn trống khác."""
+
+    table_id: int = Field(description="Bàn trống cho order mới")
+    items: list[SplitItem] = Field(min_length=1)
+    note: str | None = Field(default=None, max_length=255)
+
+
+class OrderSplitOut(BaseModel):
+    """Kết quả tách món: order gốc (đã bớt món) và order mới."""
+
+    source_order: OrderDetailOut
+    new_order: OrderDetailOut
