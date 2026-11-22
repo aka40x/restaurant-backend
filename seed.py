@@ -97,11 +97,30 @@ MENU = [  # (danh mục, tên, mô tả, giá, còn món?)
 ]
 
 MENU_IMAGES = {
-    "Pizza Margherita": "assets/images/menu/pizza-margherita.svg",
-    "Pizza Hải Sản": "assets/images/menu/pizza-hai-san.svg",
-    "Mì Ý Cua": "assets/images/menu/mi-y-cua.svg",
-    "Salad Rau Củ": "assets/images/menu/salad-rau-cu.svg",
-    "Nước ép cam": "assets/images/menu/nuoc-ep-cam.svg",
+    "Pizza Margherita": "assets/images/menu/pizza-margherita.jpg",
+    "Pizza Hải Sản": "assets/images/menu/pizza-hai-san.jpg",
+    "Pizza Pepperoni": "assets/images/menu/pizza-pepperoni.jpg",
+    "Pizza Phô Mai 4 Loại": "assets/images/menu/pizza-pho-mai-4-loai.jpg",
+    "Pizza Hawaii": "assets/images/menu/pizza-hawaii.jpg",
+    "Mì Ý Bò Bằm": "assets/images/menu/mi-y-bo-bam.jpg",
+    "Mì Ý Carbonara": "assets/images/menu/mi-y-carbonara.jpg",
+    "Mì Ý Hải Sản Sốt Cà": "assets/images/menu/mi-y-hai-san-sot-ca.jpg",
+    "Lasagna Bò Nướng Phô Mai": "assets/images/menu/lasagna-bo-nuong-pho-mai.jpg",
+    "Salad Rau Củ": "assets/images/menu/salad-rau-cu.jpg",
+    "Salad Caesar": "assets/images/menu/salad-caesar.jpg",
+    "Bánh Mì Bơ Tỏi": "assets/images/menu/banh-mi-bo-toi.jpg",
+    "Súp Kem Nấm": "assets/images/menu/sup-kem-nam.jpg",
+    "Khoai Tây Chiên": "assets/images/menu/khoai-tay-chien.jpg",
+    "Nước ép cam": "assets/images/menu/nuoc-ep-cam.jpg",
+    "Trà đào": "assets/images/menu/tra-dao.jpg",
+    "Coca-Cola": "assets/images/menu/coca-cola.jpg",
+    "Chanh Tươi": "assets/images/menu/chanh-tuoi.jpg",
+    "Cà Phê Sữa Đá": "assets/images/menu/ca-phe-sua-da.jpg",
+    "Nước Suối": "assets/images/menu/nuoc-suoi.jpg",
+    "Tiramisu": "assets/images/menu/tiramisu.jpg",
+    "Panna Cotta": "assets/images/menu/panna-cotta.jpg",
+    "Kem Gelato": "assets/images/menu/kem-gelato.jpg",
+    "Bánh Phô Mai": "assets/images/menu/banh-pho-mai.jpg",
 }
 
 OPTIONS = [  # (tên món, tên tuỳ chọn, size, topping, giá thêm)

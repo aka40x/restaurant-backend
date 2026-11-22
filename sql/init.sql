@@ -287,3 +287,12 @@ INSERT INTO vouchers (code, discount_type, discount_value, min_order_amount, sta
 UPDATE categories SET sort_order = CASE name
   WHEN 'Khai vị' THEN 1 WHEN 'Pizza' THEN 2 WHEN 'Pasta' THEN 3
   WHEN 'Salad' THEN 4 WHEN 'Đồ uống' THEN 5 WHEN 'Tráng miệng' THEN 6 END;
+
+UPDATE menu_items SET image_url = 'assets/images/menu/pizza-margherita.jpg' WHERE name = 'Pizza Margherita';
+UPDATE menu_items SET image_url = 'assets/images/menu/pizza-hai-san.jpg'    WHERE name = 'Pizza Hải Sản';
+UPDATE menu_items SET image_url = 'assets/images/menu/salad-rau-cu.jpg'     WHERE name = 'Salad Rau Củ';
+UPDATE menu_items SET image_url = 'assets/images/menu/nuoc-ep-cam.jpg'      WHERE name = 'Nước ép cam';
+
+UPDATE categories SET sort_order = CASE name
+  WHEN 'Khai vị' THEN 1 WHEN 'Pizza' THEN 2 WHEN 'Pasta' THEN 3
+  WHEN 'Salad' THEN 4 WHEN 'Đồ uống' THEN 5 WHEN 'Tráng miệng' THEN 6 END;
