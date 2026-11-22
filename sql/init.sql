@@ -296,3 +296,5 @@ UPDATE menu_items SET image_url = 'assets/images/menu/nuoc-ep-cam.jpg'      WHER
 UPDATE categories SET sort_order = CASE name
   WHEN 'Khai vị' THEN 1 WHEN 'Pizza' THEN 2 WHEN 'Pasta' THEN 3
   WHEN 'Salad' THEN 4 WHEN 'Đồ uống' THEN 5 WHEN 'Tráng miệng' THEN 6 END;
+
+UPDATE menu_items SET image_url = 'assets/images/menu/mi-y-cua.jpg' WHERE name = 'Mì Ý Cua';

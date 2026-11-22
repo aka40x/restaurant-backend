@@ -121,6 +121,7 @@ MENU_IMAGES = {
     "Panna Cotta": "assets/images/menu/panna-cotta.jpg",
     "Kem Gelato": "assets/images/menu/kem-gelato.jpg",
     "Bánh Phô Mai": "assets/images/menu/banh-pho-mai.jpg",
+    "Mì Ý Cua": "assets/images/menu/mi-y-cua.jpg",
 }
 
 OPTIONS = [  # (tên món, tên tuỳ chọn, size, topping, giá thêm)
