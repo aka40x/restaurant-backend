@@ -19,3 +19,4 @@ from app.models.order_item_option import OrderItemOption  # noqa: F401
 from app.models.revoked_token import RevokedToken  # noqa: F401
 from app.models.customer import Customer
 from app.models.reservation import Reservation
+from app.models.loyalty import LoyaltyTransaction  # noqa: F401
