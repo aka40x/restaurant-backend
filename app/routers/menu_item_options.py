@@ -34,6 +34,12 @@ def get_option_or_404(option_id: int, db: Session = Depends(get_db)):
     return option
 
 
+def check_size_or_topping(size: str | None, topping: str | None) -> None:
+    """Một tuỳ chọn là size HOẶC topping, không điền cả hai (model: size trống nếu là topping và ngược lại)."""
+    if size and topping:
+        raise HTTPException(status_code=422, detail="Tuỳ chọn chỉ là size hoặc topping, không điền cả hai")
+
+
 @router.get("/menu-items/{item_id}/options", response_model=list[MenuItemOptionOut])
 def list_options(only_active: bool = False, item=Depends(get_item_or_404), db: Session = Depends(get_db)):
     return option_crud.get_options(db, item.id, only_active=only_active)
@@ -41,11 +47,20 @@ def list_options(only_active: bool = False, item=Depends(get_item_or_404), db: S
 
 @router.post("/menu-items/{item_id}/options", response_model=MenuItemOptionOut, status_code=status.HTTP_201_CREATED)
 def create_option(data: MenuItemOptionCreate, item=Depends(get_item_or_404), db: Session = Depends(get_db)):
+    if not item.is_active:
+        raise HTTPException(status_code=409, detail="Món đã ngừng bán, hãy mở bán lại món trước khi thêm tuỳ chọn")
+    check_size_or_topping(data.size, data.topping)
     return option_crud.create_option(db, item.id, data)
 
 
 @router.put("/menu-item-options/{option_id}", response_model=MenuItemOptionOut)
 def update_option(data: MenuItemOptionUpdate, option=Depends(get_option_or_404), db: Session = Depends(get_db)):
+    sent = data.model_fields_set
+    if "size" in sent or "topping" in sent:  # chỉ kiểm tra khi có đổi size/topping (bật/tắt is_active thì bỏ qua)
+        check_size_or_topping(
+            data.size if "size" in sent else option.size,
+            data.topping if "topping" in sent else option.topping,
+        )
     return option_crud.update_option(db, option, data)
 
 

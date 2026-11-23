@@ -2,8 +2,12 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.models.category import Category
 from app.models.menu_item import MenuItem
 from app.schemas.menu_item import MenuItemCreate, MenuItemUpdate
+
+# Các cột KHÔNG cho phép NULL: FE gửi null thì bỏ qua, tránh lỗi 500 từ MySQL
+NOT_NULL_FIELDS = {"category_id", "name", "price", "is_available", "is_active"}
 
 
 def get_menu_items(
@@ -12,6 +16,7 @@ def get_menu_items(
     category_id: int | None = None,
     only_active: bool = False,
     only_available: bool = False,
+    only_active_category: bool = False,
 ) -> list[MenuItem]:
     query = select(MenuItem).order_by(MenuItem.id)
     if keyword:
@@ -22,6 +27,8 @@ def get_menu_items(
         query = query.where(MenuItem.is_active.is_(True))
     if only_available:
         query = query.where(MenuItem.is_available.is_(True))
+    if only_active_category:  # món thuộc danh mục đã ngừng thì không có chỗ hiển thị (web khách)
+        query = query.join(Category, MenuItem.category_id == Category.id).where(Category.is_active.is_(True))
     return list(db.scalars(query))
 
 
@@ -39,6 +46,8 @@ def create_menu_item(db: Session, data: MenuItemCreate) -> MenuItem:
 
 def update_menu_item(db: Session, item: MenuItem, data: MenuItemUpdate) -> MenuItem:
     for field, value in data.model_dump(exclude_unset=True).items():
+        if value is None and field in NOT_NULL_FIELDS:
+            continue
         setattr(item, field, value)
     db.commit()
     db.refresh(item)

@@ -1,13 +1,22 @@
 """CRUD bảng dining_tables (bàn ăn). Router gọi vào đây, không viết SQL trong router."""
+from datetime import datetime, timedelta
+
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models.dining_table import DiningTable
+from app.models.order import ORDER_ACTIVE_STATUSES, Order
+from app.models.reservation import Reservation
 from app.schemas.dining_table import DiningTableCreate, DiningTableUpdate
 
 # Các cột KHÔNG cho phép NULL: FE gửi null thì bỏ qua, tránh lỗi 500 từ MySQL
-NOT_NULL_FIELDS = {"table_number", "capacity", "status", "is_active"}
+NOT_NULL_FIELDS = {"table_number", "capacity", "is_active"}
+
+# Đặt bàn đã xếp bàn nhưng khách chưa tới thì còn giữ bàn. Quá giờ đặt ngần này phút thì hệ thống tự
+# đánh dấu "không đến" (NO_SHOW_MINUTES bên check-in) nên không còn giữ bàn nữa.
+HOLD_AFTER_MINUTES = 30
+HOLDING_STATUSES = ("pending", "confirmed")
 
 
 class DuplicateTableNumber(Exception):
@@ -45,6 +54,53 @@ def get_table_by_number(db: Session, branch_id: int, table_number: str) -> Dinin
             func.lower(DiningTable.table_number) == table_number.lower(),
         )
     )
+
+
+def _holding_reservations(db: Session, table_id: int) -> list[Reservation]:
+    """Các đặt bàn đang giữ bàn này: chờ xác nhận / đã xác nhận và chưa quá giờ."""
+    deadline = datetime.now() - timedelta(minutes=HOLD_AFTER_MINUTES)
+    return list(
+        db.scalars(
+            select(Reservation)
+            .where(
+                Reservation.table_id == table_id,
+                Reservation.status.in_(HOLDING_STATUSES),
+                Reservation.reserved_at >= deadline,
+            )
+            .order_by(Reservation.reserved_at)
+        )
+    )
+
+
+def get_deactivate_blocker(db: Session, table: DiningTable) -> str | None:
+    """Lý do CHƯA thể ngừng sử dụng bàn, None nếu ngừng được.
+
+    Căn cứ vào order và đặt bàn thật, không dựa vào cờ `status` của bàn (cờ này có thể lệch).
+    """
+    has_order = db.scalar(
+        select(Order.id).where(Order.table_id == table.id, Order.status.in_(ORDER_ACTIVE_STATUSES)).limit(1)
+    )
+    if has_order is not None:
+        return "Bàn đang có khách (còn order chưa thanh toán), chưa thể ngừng sử dụng"
+    reservations = _holding_reservations(db, table.id)
+    if reservations:
+        r = reservations[0]
+        return (
+            f"Bàn đã được xếp cho đặt bàn {r.code} lúc {r.reserved_at:%H:%M %d/%m}, "
+            "hãy đổi bàn hoặc huỷ đặt bàn đó trước khi ngừng bàn"
+        )
+    return None
+
+
+def get_capacity_blocker(db: Session, table: DiningTable, new_capacity: int) -> str | None:
+    """Giảm số ghế xuống thấp hơn số khách của đặt bàn đã xếp vào bàn này thì không cho."""
+    for r in _holding_reservations(db, table.id):
+        if r.party_size > new_capacity:
+            return (
+                f"Đặt bàn {r.code} đã xếp vào bàn này cho {r.party_size} khách, "
+                f"không thể giảm xuống {new_capacity} ghế"
+            )
+    return None
 
 
 def _clean_area(area: str | None) -> str | None:

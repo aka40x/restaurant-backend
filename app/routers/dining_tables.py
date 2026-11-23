@@ -11,6 +11,9 @@ Phân quyền:
        nhân viên khác chỉ thấy bàn của chi nhánh mình.
 - POST / PUT / DELETE: admin, manager. Manager chỉ thao tác trên chi nhánh của mình.
 Quy tắc: số bàn không trùng trong cùng chi nhánh (BR-03) -> trùng trả 409.
+Trạng thái bàn (trống / có khách) do hệ thống tự đổi khi mở order, thanh toán, chuyển bàn nên API này
+không cho nhập `status`. Không ngừng bàn đang có order chưa thanh toán hoặc đã được xếp cho đặt bàn
+(409), và không giảm số ghế thấp hơn số khách của đặt bàn đã xếp (409).
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -83,6 +86,15 @@ def update_table(
     db: Session = Depends(get_db),
 ):
     check_branch_access(user, table.branch_id)
+    # Bỏ tick "Đang sử dụng" cũng là ngừng bàn, nên phải chặn giống nút Ngừng (DELETE) bên dưới
+    if data.is_active is False and table.is_active:
+        blocker = table_crud.get_deactivate_blocker(db, table)
+        if blocker:
+            raise HTTPException(status_code=409, detail=blocker)
+    if data.capacity is not None and data.capacity < table.capacity:
+        blocker = table_crud.get_capacity_blocker(db, table, data.capacity)
+        if blocker:
+            raise HTTPException(status_code=409, detail=blocker)
     try:
         return table_crud.update_table(db, table, data)
     except table_crud.DuplicateTableNumber:
@@ -92,6 +104,8 @@ def update_table(
 @router.delete("/{table_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=manage_roles)
 def deactivate_table(table=Depends(get_table_or_404), user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     check_branch_access(user, table.branch_id)
-    if table.status != "available":
-        raise HTTPException(status_code=409, detail="Bàn đang có khách hoặc đã được đặt, chưa thể ngừng sử dụng")
+    if table.is_active:
+        blocker = table_crud.get_deactivate_blocker(db, table)
+        if blocker:
+            raise HTTPException(status_code=409, detail=blocker)
     table_crud.deactivate_table(db, table)

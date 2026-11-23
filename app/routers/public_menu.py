@@ -1,7 +1,7 @@
 """API thực đơn công khai cho web khách (không cần đăng nhập). Đường dẫn đầy đủ: /api/public/...
 
     GET /api/public/categories    danh mục đang dùng
-    GET /api/public/menu-items    món đang bán (món tạm hết vẫn trả về, is_available=false)
+    GET /api/public/menu-items    món đang bán, thuộc danh mục đang dùng (món tạm hết vẫn trả về, is_available=false)
                                   ?category_id=  ?q=
 
 Chỉ đọc. Thêm/sửa/xoá vẫn dùng /api/categories và /api/menu-items (admin, manager).
@@ -29,4 +29,6 @@ def public_menu_items(
     category_id: int | None = None,
     db: Session = Depends(get_db),
 ):
-    return item_crud.get_menu_items(db, keyword=q, category_id=category_id, only_active=True)
+    return item_crud.get_menu_items(
+        db, keyword=q, category_id=category_id, only_active=True, only_active_category=True
+    )

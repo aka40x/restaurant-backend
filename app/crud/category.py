@@ -5,6 +5,9 @@ from sqlalchemy.orm import Session
 from app.models.category import Category
 from app.schemas.category import CategoryCreate, CategoryUpdate
 
+# Các cột KHÔNG cho phép NULL: FE gửi null thì bỏ qua, tránh lỗi 500 từ MySQL
+NOT_NULL_FIELDS = {"name", "sort_order", "is_active"}
+
 
 def get_categories(db: Session, keyword: str | None = None, only_active: bool = False) -> list[Category]:
     query = select(Category).order_by(Category.sort_order, Category.id)
@@ -29,6 +32,8 @@ def create_category(db: Session, data: CategoryCreate) -> Category:
 
 def update_category(db: Session, category: Category, data: CategoryUpdate) -> Category:
     for field, value in data.model_dump(exclude_unset=True).items():
+        if value is None and field in NOT_NULL_FIELDS:
+            continue
         setattr(category, field, value)
     db.commit()
     db.refresh(category)

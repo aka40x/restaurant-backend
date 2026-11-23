@@ -35,9 +35,13 @@ def get_item_or_404(item_id: int, db: Session = Depends(get_db)):
     return item
 
 
-def check_category_exists(db: Session, category_id: int) -> None:
-    if category_crud.get_category(db, category_id) is None:
+def check_category_usable(db: Session, category_id: int) -> None:
+    """Món chỉ được thêm / chuyển vào danh mục có thật và còn hoạt động."""
+    category = category_crud.get_category(db, category_id)
+    if category is None:
         raise HTTPException(status_code=400, detail=f"Danh mục id={category_id} không tồn tại")
+    if not category.is_active:
+        raise HTTPException(status_code=400, detail=f"Danh mục '{category.name}' đã ngừng hoạt động, hãy chọn danh mục khác")
 
 
 @router.get("", response_model=list[MenuItemOut])
@@ -60,14 +64,14 @@ def get_menu_item(item=Depends(get_item_or_404)):
 
 @router.post("", response_model=MenuItemOut, status_code=status.HTTP_201_CREATED)
 def create_menu_item(data: MenuItemCreate, db: Session = Depends(get_db)):
-    check_category_exists(db, data.category_id)
+    check_category_usable(db, data.category_id)
     return item_crud.create_menu_item(db, data)
 
 
 @router.put("/{item_id}", response_model=MenuItemOut)
 def update_menu_item(data: MenuItemUpdate, item=Depends(get_item_or_404), db: Session = Depends(get_db)):
-    if data.category_id is not None:
-        check_category_exists(db, data.category_id)
+    if data.category_id is not None and data.category_id != item.category_id:  # giữ nguyên danh mục thì khỏi kiểm tra lại
+        check_category_usable(db, data.category_id)
     return item_crud.update_menu_item(db, item, data)
 
 

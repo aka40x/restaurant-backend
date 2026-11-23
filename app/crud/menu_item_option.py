@@ -5,6 +5,9 @@ from sqlalchemy.orm import Session
 from app.models.menu_item_option import MenuItemOption
 from app.schemas.menu_item import MenuItemOptionCreate, MenuItemOptionUpdate
 
+# Các cột KHÔNG cho phép NULL: FE gửi null thì bỏ qua, tránh lỗi 500 từ MySQL
+NOT_NULL_FIELDS = {"name", "extra_price", "is_required", "is_active"}
+
 
 def get_options(db: Session, menu_item_id: int, only_active: bool = False) -> list[MenuItemOption]:
     query = select(MenuItemOption).where(MenuItemOption.menu_item_id == menu_item_id).order_by(MenuItemOption.id)
@@ -27,6 +30,8 @@ def create_option(db: Session, menu_item_id: int, data: MenuItemOptionCreate) ->
 
 def update_option(db: Session, option: MenuItemOption, data: MenuItemOptionUpdate) -> MenuItemOption:
     for field, value in data.model_dump(exclude_unset=True).items():
+        if value is None and field in NOT_NULL_FIELDS:
+            continue
         setattr(option, field, value)
     db.commit()
     db.refresh(option)

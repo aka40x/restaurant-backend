@@ -105,6 +105,8 @@ def _build_options(db: Session, menu_item: MenuItem, option_ids: list[int]) -> l
         option = db.get(MenuItemOption, option_id)
         if option is None or option.menu_item_id != menu_item.id:
             raise HTTPException(status_code=400, detail=f"Tuỳ chọn id={option_id} không thuộc món '{menu_item.name}'")
+        if not option.is_active:
+            raise HTTPException(status_code=400, detail=f"Tuỳ chọn '{option.name}' đã ngừng áp dụng")
         options.append(OrderItemOption(option_id=option.id, extra_price=option.extra_price))  # lưu giá lúc gọi
     return options
 
@@ -121,6 +123,8 @@ def add_item(db: Session, order: Order, data: OrderItemCreate) -> Order:
     menu_item = db.get(MenuItem, data.menu_item_id)
     if menu_item is None:
         raise HTTPException(status_code=404, detail=f"Không tìm thấy món id={data.menu_item_id}")
+    if not menu_item.is_active:
+        raise HTTPException(status_code=400, detail=f"Món '{menu_item.name}' đã ngừng bán")
     if not menu_item.is_available:
         raise HTTPException(status_code=400, detail=f"Món '{menu_item.name}' đã hết")
 
