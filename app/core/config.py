@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     DB_USER: str = "app_user"
     DB_PASSWORD: str = "app_password"
     DB_NAME: str = "app_db"
+    DB_SSL: bool = False  # MySQL trên mạng (TiDB Cloud...) thường bắt buộc TLS -> đặt DB_SSL=true
     
     # ---- Đăng nhập (JWT) ----
     # SECRET_KEY dùng để ký token. Tạo chuỗi ngẫu nhiên: python -c "import secrets; print(secrets.token_hex(32))"
