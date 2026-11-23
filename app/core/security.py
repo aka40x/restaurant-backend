@@ -4,6 +4,7 @@
 - refresh token: sống dài (mặc định 7 ngày), chỉ dùng để xin access token mới
 """
 from datetime import datetime, timedelta, timezone
+import hashlib
 
 import bcrypt
 import jwt
@@ -29,6 +30,9 @@ def verify_password(password: str, password_hash: str) -> bool:
     except ValueError:  # password_hash không phải chuỗi bcrypt hợp lệ
         return False
 
+def password_fingerprint(password_hash: str) -> str:
+    """Dấu vân tay ngắn của mật khẩu hiện tại. Nhét vào token; đổi mật khẩu thì dấu vân tay đổi -> token cũ hết hiệu lực."""
+    return hashlib.sha256(password_hash.encode("utf-8")).hexdigest()[:16]
 
 # ---------- Token ----------
 def _create_token(data: dict, token_type: str, expires_delta: timedelta) -> str:

@@ -115,11 +115,14 @@ def _resolve_role_and_branch(db: Session, actor: User, role_id: int, branch_id: 
     if branch is None or not branch.is_active:
         raise HTTPException(status_code=400, detail=f"Chi nhánh id={branch_id} không tồn tại hoặc đã ngừng hoạt động")
     return branch_id
-
+def _ensure_password_ok(password: str) -> None:
+    if not password.strip():
+        raise HTTPException(status_code=400, detail="Mật khẩu không được chỉ gồm khoảng trắng")
 
 # ---------- Ghi ----------
 def create_user(db: Session, actor: User, data: UserCreate) -> User:
     email = data.email.strip().lower()
+    _ensure_password_ok(data.password)
     _ensure_email_free(db, email)
     branch_id = _resolve_role_and_branch(db, actor, data.role_id, data.branch_id)
     user = User(
@@ -169,6 +172,7 @@ def update_user(db: Session, actor: User, user: User, data: UserUpdate) -> User:
         db.refresh(user)  # nạp lại user.role mới
 
     if "password" in changes and changes["password"]:
+        _ensure_password_ok(changes["password"])
         user.password_hash = hash_password(changes["password"])
     if "is_active" in changes and changes["is_active"] != user.is_active:
         _apply_active(db, actor, user, changes["is_active"])

@@ -25,7 +25,7 @@ from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
-from app.core.security import decode_token
+from app.core.security import decode_token, password_fingerprint
 from app.crud import user as user_crud
 from app.db.session import get_db
 from app.models.user import User
@@ -65,6 +65,8 @@ def get_optional_user(
         raise _unauthorized("Token không hợp lệ hoặc đã hết hạn")
     if user is None or not user.is_active:
         raise _unauthorized("Tài khoản không tồn tại hoặc đã bị khoá")
+    if payload.get("pwd") != password_fingerprint(user.password_hash):  # đã đổi mật khẩu sau khi cấp token
+        raise _unauthorized("Mật khẩu đã thay đổi, vui lòng đăng nhập lại")
     return user
 
 
