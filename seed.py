@@ -315,9 +315,175 @@ def seed(db: Session) -> Stats:
     else:
         stats.add("orders", False)
 
+    seed_extra(db, stats, {"roles": roles, "branches": branches, "users": users, "tables": tables, "items": items,
+                           "options": options, "vouchers": vouchers, "customers": customers})
     db.commit()
     return stats
 
+SEED2_NOTE = "[seed2]"  # đánh dấu order mẫu bổ sung, chạy lại không tạo thêm
+CAN_THO = ("Chi nhánh Cần Thơ", "12 Hòa Bình, Ninh Kiều, Cần Thơ", "02923111222")  # chi nhánh ngừng hoạt động
+
+EXTRA_USERS = [  # (email, họ tên, vai trò, chi nhánh, sđt)
+    ("cashier2@restaurant.com", "Tạ Thị M", "cashier", BRANCHES[0][0], "0901000006"),
+    ("waiter3@restaurant.com", "Châu Văn N", "waiter", BRANCHES[0][0], "0901000007"),
+    ("kitchen2@restaurant.com", "Mai Thị O", "kitchen", BRANCHES[0][0], "0901000008"),
+    ("cashier.dn@restaurant.com", "Trương Văn P", "cashier", BRANCHES[2][0], "0903000003"),
+    ("kitchen.dn@restaurant.com", "Phan Thị Q", "kitchen", BRANCHES[2][0], "0903000004"),
+    ("manager.ct@restaurant.com", "Võ Văn R", "manager", CAN_THO[0], "0904000001"),  # quản lý chi nhánh đã đóng
+]
+EXTRA_CUSTOMERS = [
+    ("Phạm Thị Hoa", "0911000004"), ("Đỗ Minh Quân", "0911000005"), ("Vũ Ngọc Lan", "0911000006"),
+    ("Bùi Anh Tuấn", "0911000007"), ("Hoàng Mai Chi", "0911000008"),
+]
+EXTRA_VOUCHERS = [  # (mã, loại, giá trị, đơn tối thiểu, bắt đầu, kết thúc, số lượt, đang hoạt động)
+    ("DOIDIEM20", "amount", 20000, 0, -10, 20, 1, True),   # voucher "đổi từ điểm"
+    ("SAPHET", "percent", 15, 100000, -30, 60, 3, True),   # sắp hết lượt (đã dùng 2/3)
+]
+# (số ngày trước, giờ, chi nhánh, bàn, món [(tên, SL, [tuỳ chọn])], phương thức, mã voucher, SĐT tích điểm)
+EXTRA_PAID = [
+    (6, 12, 0, "A2", [("Pizza Margherita", 2, ["Size L"]), ("Nước ép cam", 2, [])], "cash", None, None),
+    (6, 19, 0, "A4", [("Pizza Hải Sản", 2, []), ("Mì Ý Cua", 2, []), ("Tiramisu", 3, [])], "card", "WELCOME10", "0911000004"),
+    (5, 13, 1, "B2", [("Mì Ý Carbonara", 2, []), ("Trà đào", 2, ["Thêm trân châu"])], "transfer", None, "0911000005"),
+    (4, 20, 0, "A5", [("Pizza Pepperoni", 3, ["Size L"]), ("Salad Caesar", 2, []), ("Coca-Cola", 4, [])], "cash", "GIAM50K", "0911000004"),
+    (3, 12, 2, "C2", [("Lasagna Bò Nướng Phô Mai", 2, []), ("Chanh Tươi", 2, [])], "cash", None, None),
+    (3, 18, 1, "B3", [("Pizza Phô Mai 4 Loại", 2, []), ("Súp Kem Nấm", 2, []), ("Kem Gelato", 2, [])], "card", None, "0911000006"),
+    (2, 19, 0, "A3", [("Pizza Hawaii", 1, []), ("Mì Ý Bò Bằm", 1, []), ("Cà Phê Sữa Đá", 2, [])], "transfer", None, "0911000007"),
+    (2, 21, 2, "C3", [("Pizza Hải Sản", 3, ["Size L"]), ("Salad Rau Củ", 2, [])], "card", "SAPHET", "0911000008"),
+    (1, 12, 0, "A2", [("Mì Ý Cua", 2, []), ("Bánh Mì Bơ Tỏi", 1, [])], "cash", None, "0911000005"),
+    (1, 19, 1, "B1", [("Pizza Margherita", 1, ["Size M"]), ("Khoai Tây Chiên", 1, [])], "cash", None, None),
+    (1, 20, 0, "A4", [("Pizza Pepperoni", 2, []), ("Pizza Hải Sản", 2, []), ("Bánh Phô Mai", 4, []), ("Nước Suối", 4, [])], "card", "WELCOME10", "0911000004"),
+    (0, 11, 0, "A1", [("Salad Caesar", 1, []), ("Trà đào", 1, [])], "cash", None, None),
+]
+# order đang phục vụ: (chi nhánh, bàn, trạng thái order, món [(tên, SL, trạng thái món)])
+EXTRA_OPEN = [
+    (0, "A4", "open", [("Pizza Margherita", 2, "pending")]),
+    (0, "A5", "served", [("Pizza Pepperoni", 2, "served"), ("Coca-Cola", 3, "served")]),
+    (1, "B2", "sent", [("Mì Ý Carbonara", 2, "cooking"), ("Nước Suối", 2, "done")]),
+    (2, "C2", "sent", [("Lasagna Bò Nướng Phô Mai", 1, "cooking")]),
+]
+
+
+def seed_extra(db: Session, stats: Stats, ctx: dict) -> None:
+    """Thêm dữ liệu mẫu bổ sung: nhân viên/chi nhánh, khách + điểm, đặt bàn, order + thanh toán nhiều ngày."""
+    from app.crud.loyalty import points_for
+    from app.models.loyalty import LoyaltyTransaction
+
+    today, now = date.today(), datetime.now()
+    roles, branches, users, tables, items, options, vouchers = (
+        ctx[k] for k in ("roles", "branches", "users", "tables", "items", "options", "vouchers"))
+    branch_list = [branches[b[0]] for b in BRANCHES]
+
+    # ---- 1. Nhân viên & chi nhánh ----
+    can_tho = get_or_create(db, stats, Branch, {"name": CAN_THO[0]}, {"address": CAN_THO[1], "phone": CAN_THO[2], "is_active": False})
+    branches[CAN_THO[0]] = can_tho
+    password_hash = None
+    for email, full_name, role, branch_name, phone in EXTRA_USERS:
+        user = db.scalar(select(User).where(func.lower(User.email) == email))
+        is_new = user is None
+        if is_new:
+            password_hash = password_hash or hash_password(DEFAULT_PASSWORD)
+            user = User(email=email, full_name=full_name, phone=phone, password_hash=password_hash,
+                        role_id=roles[role].id, branch_id=branches[branch_name].id, is_active=True)
+            db.add(user)
+            db.flush()
+        stats.add("users", is_new)
+        users[email] = user
+
+    # ---- 2. Khách hàng + voucher bổ sung ----
+    customers = {phone: get_or_create(db, stats, Customer, {"phone": phone}, {"full_name": name}) for name, phone in EXTRA_CUSTOMERS}
+    for c in ctx["customers"]:
+        customers[c.phone] = c
+    for code, kind, value, minimum, start, end, limit, active in EXTRA_VOUCHERS:
+        vouchers[code] = get_or_create(
+            db, stats, Voucher, {"code": code},
+            {"discount_type": kind, "discount_value": Decimal(value), "min_order_amount": Decimal(minimum),
+             "start_date": today + timedelta(days=start), "end_date": today + timedelta(days=end),
+             "usage_limit": limit, "is_active": active})
+
+    # ---- 3. Đặt bàn đủ trạng thái, nhiều chi nhánh ----
+    def at(days, hour, minute=0):
+        return datetime.combine(today + timedelta(days=days), datetime.min.time()).replace(hour=hour, minute=minute)
+
+    phones = list(customers)
+    for i, (code, b, table, party, when, status, note) in enumerate([
+        ("DBSEED04", 0, "A2", 4, at(0, 18, 30), "confirmed", "Sinh nhật, cần bánh kem"),
+        ("DBSEED05", 0, "A3", 2, at(0, 19), "pending", None),
+        ("DBSEED06", 0, "A5", 8, at(0, 20), "confirmed", "Họp lớp"),
+        ("DBSEED07", 0, "A1", 2, now.replace(minute=0, second=0, microsecond=0), "seated", "Khách đã nhận bàn"),
+        ("DBSEED08", 0, "A2", 3, at(-1, 12), "pending", "Quá giờ, chưa tới (để thử no-show)"),
+        ("DBSEED09", 0, "A3", 2, at(-2, 19), "no_show", None),
+        ("DBSEED10", 0, "A4", 5, at(-3, 18), "seated", None),
+        ("DBSEED11", 0, "A1", 2, at(4, 12), "cancelled", "Khách huỷ vì bận"),
+        ("DBSEED12", 1, "B2", 4, at(0, 19), "confirmed", None),
+        ("DBSEED13", 1, "B3", 6, at(1, 18), "pending", None),
+        ("DBSEED14", 2, "C2", 4, at(1, 12), "confirmed", None),
+        ("DBSEED15", 2, "C3", 6, at(2, 19), "pending", "Gần cửa sổ"),
+    ]):
+        cust = customers[phones[i % len(phones)]]
+        branch = branch_list[b]
+        get_or_create(
+            db, stats, Reservation, {"code": code},
+            {"branch_id": branch.id, "table_id": tables[(branch.name, table)].id, "customer_id": cust.id,
+             "guest_name": cust.full_name, "guest_phone": cust.phone, "party_size": party,
+             "reserved_at": when, "status": status, "note": note})
+
+    # ---- 4. Order + thanh toán nhiều ngày, order đang phục vụ ----
+    if db.scalar(select(Order.id).where(Order.note == SEED2_NOTE).limit(1)) is not None:
+        stats.add("orders", False)
+        return
+
+    staff = {0: ("waiter@restaurant.com", "cashier@restaurant.com"),
+             1: ("waiter.hn@restaurant.com", "cashier.hn@restaurant.com"),
+             2: ("waiter.dn@restaurant.com", "cashier.dn@restaurant.com")}
+
+    def build(b, table, status, lines, created):
+        branch = branch_list[b]
+        order = Order(branch_id=branch.id, table_id=tables[(branch.name, table)].id,
+                      waiter_id=users[staff[b][0]].id, status=status, note=SEED2_NOTE, created_at=created)
+        db.add(order)
+        for name, qty, opts, *rest in lines:
+            item = items[name]
+            line = OrderItem(menu_item_id=item.id, quantity=qty, unit_price=item.price,
+                             status=rest[0] if rest else "served", sent_at=created if (rest[0] if rest else "served") != "pending" else None)
+            for opt in opts if isinstance(opts, list) else []:
+                o = options[(name, opt)]
+                line.options.append(OrderItemOption(option_id=o.id, extra_price=o.extra_price))
+            order.items.append(line)
+        db.flush()
+        return order
+
+    payments = {}
+    for days, hour, b, table, lines, method, code, phone in EXTRA_PAID:
+        created = at(-days, hour) if days else now.replace(hour=min(hour, now.hour), minute=0, second=0, microsecond=0)
+        order = build(b, table, "paid", [(n, q, o) for n, q, o in lines], created)
+        order.closed_at = created + timedelta(minutes=75)
+        subtotal, discount, voucher = order.subtotal, Decimal(0), vouchers.get(code) if code else None
+        if voucher is not None:
+            if subtotal >= voucher.min_order_amount:
+                discount = (subtotal * voucher.discount_value / 100).quantize(Decimal(1)) if voucher.discount_type == "percent" else voucher.discount_value
+            voucher.used_count += 1
+        pay = Payment(order_id=order.id, cashier_id=users[staff[b][1]].id, voucher_id=voucher.id if voucher else None,
+                      subtotal=subtotal, discount_amount=discount, total_amount=subtotal - discount,
+                      method=method, status="paid", paid_at=order.closed_at)
+        db.add(pay)
+        db.flush()
+        payments[(days, hour, b, table)] = (pay, phone)
+    vouchers["SAPHET"].used_count = max(vouchers["SAPHET"].used_count, 2)
+
+    # điểm tích luỹ: earn theo từng payment có SĐT; redeem 1 lần để thử lịch sử
+    for pay, phone in payments.values():
+        points = points_for(pay.total_amount)
+        if phone and points > 0:
+            db.add(LoyaltyTransaction(customer_id=customers[phone].id, payment_id=pay.id, type="earn",
+                                      points=points, created_at=pay.paid_at))
+    db.add(LoyaltyTransaction(customer_id=customers["0911000004"].id, voucher_id=vouchers["DOIDIEM20"].id,
+                              type="redeem", points=-20, created_at=now - timedelta(days=1)))
+    vouchers["DOIDIEM20"].used_count = 0  # voucher chưa dùng, khách còn có thể thử áp vào đơn
+
+    for b, table, status, lines in EXTRA_OPEN:
+        build(b, table, status, lines, now - timedelta(minutes=40))
+        tables[(branch_list[b].name, table)].status = "occupied"
+    stats.add("orders", True)
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="Seed dữ liệu mẫu toàn hệ thống")
